@@ -12,6 +12,8 @@ warnings.filterwarnings("ignore", category=DeprecationWarning, message="int argu
 # --- Configuration ---
 GRAMMAR_LIB_PATH = 'build/blade-grammar.so'
 CONFIG_FILE_PATH = 'config.json'
+API_SERVICE_ENDPOINT = 'http://localhost:8000/'
+MAX_SERVICE_ENDPOINT = 'http://localhost:8000/'
 
 # --- Default configuration if config.json is not found ---
 DEFAULT_CONFIG = {
@@ -21,6 +23,7 @@ DEFAULT_CONFIG = {
     "target_languages": ["zh_HK", "zh_CN"],
     "validate_ai_model": "gpt-4o",
     "translate_ai_model": "gpt-4o-mini",
+    "use_cmscore_ai_first": "false",
     "hardcoded_translations": {
         "zh_HK": {
             "Skip to main content": "跳至主要內容",
@@ -50,7 +53,7 @@ def load_config():
     config = None
     # 1. Try FastAPI server config
     try:
-        response = requests.get("http://localhost:8000/config", timeout=3)
+        response = requests.get(API_SERVICE_ENDPOINT+"config", timeout=3)
         if response.status_code == 200:
             server_config = response.json().get("config", {})
             if server_config:
@@ -405,7 +408,7 @@ def validate_translatable_content(texts_to_validate, ai_model):
         return []
     try:
         response = requests.post(
-            "http://localhost:8000/validate",
+            API_SERVICE_ENDPOINT+"validate",
             json={"texts": list(texts_to_validate), "ai_model": ai_model},
             timeout=10
         )
@@ -578,7 +581,7 @@ def filter_existing_keys(keys_to_check, target_language, lang_dir='../lang'):
     
     return filtered_keys
 
-def translate_and_save(keys_to_translate, source_language, target_languages, ai_model, hardcoded_translations=None, is_interactive=False):
+def translate_and_save(keys_to_translate, source_language, target_languages, ai_model, hardcoded_translations=None, use_cmscore_ai_first=False, is_interactive=False):
     """
     Translates keys using OpenAI and saves them to language files.
     """
@@ -587,6 +590,8 @@ def translate_and_save(keys_to_translate, source_language, target_languages, ai_
     translated_keys_by_language = {lang: {} for lang in target_languages}
 
     retry_attempted = False
+    primary_endpoint = API_SERVICE_ENDPOINT+"translate"
+    secondary_endpoint = MAX_SERVICE_ENDPOINT+"translate"
     response = requests.post(
         primary_endpoint,
         json={
@@ -732,11 +737,12 @@ def main():
 
     config = load_config()
     source_language = config['source_language']
-    validate_ai_model = config['validate_ai_model']
-    translate_ai_model = config['translate_ai_model']
     translatable_attributes = config['translatable_attributes']
     excluded_directories = config['excluded_directories']
-    target_languages = config['target_languages']
+    target_languages = config['target_languages'] 
+    validate_ai_model = config['validate_ai_model']
+    translate_ai_model = config['translate_ai_model']
+    use_cmscore_ai_first = config['use_cmscore_ai_first']
     hardcoded_translations = config['hardcoded_translations']
 
     if not os.path.exists(GRAMMAR_LIB_PATH):
@@ -801,7 +807,7 @@ def main():
         # If any languages need translation, make a single API call for all
         if all_filtered_keys and languages_needing_translation:
             if not args.no_translate:
-                translate_and_save(all_filtered_keys, source_language, languages_needing_translation, translate_ai_model, hardcoded_translations, args.interactive)
+                translate_and_save(all_filtered_keys, source_language, languages_needing_translation, translate_ai_model, hardcoded_translations, use_cmscore_ai_first, args.interactive)
             else:
                 # For --no-translate, create empty translations for each language
                 for target_language in languages_needing_translation:
