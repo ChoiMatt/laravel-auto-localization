@@ -45,48 +45,40 @@ DEFAULT_CONFIG = {
     }
 }
 
-
 def load_config():
-    """Loads configuration from config.json."""
-    # 1. Try local config.json
-    if os.path.exists(CONFIG_FILE_PATH):
-        try:
-            with open(CONFIG_FILE_PATH, 'r') as f:
-                config = json.load(f)
-                print("Loaded configuration from local config.json")
-                config['source_language'] = config.get('source_language', DEFAULT_CONFIG['source_language'])
-                config['validate_ai_model'] = config.get('validate_ai_model', DEFAULT_CONFIG['validate_ai_model'])
-                config['translate_ai_model'] = config.get('translate_ai_model', DEFAULT_CONFIG['translate_ai_model'])
-                config['translatable_attributes'] = config.get('translatable_attributes', DEFAULT_CONFIG['translatable_attributes'])
-                config['excluded_directories'] = config.get('excluded_directories', DEFAULT_CONFIG['excluded_directories'])
-                config['target_languages'] = config.get('target_languages', DEFAULT_CONFIG['target_languages'])
-                config['hardcoded_translations'] = config.get('hardcoded_translations', DEFAULT_CONFIG['hardcoded_translations'])
-                return config
-        except json.JSONDecodeError:
-            print(f"⚠️ Warning: Could not parse {CONFIG_FILE_PATH}. Trying FastAPI server config.")
-    # 2. Try FastAPI server config
+    """Loads configuration: 1) FastAPI server, 2) fallback to default, 3) user config.json overwrites fields."""
+    config = None
+    # 1. Try FastAPI server config
     try:
         response = requests.get("http://localhost:8000/config", timeout=3)
         if response.status_code == 200:
-            config = response.json()
-            if config:
+            server_config = response.json().get("config", {})
+            if server_config:
                 print("Loaded configuration from FastAPI server.")
-                config['source_language'] = config.get('source_language', DEFAULT_CONFIG['source_language'])
-                config['validate_ai_model'] = config.get('validate_ai_model', DEFAULT_CONFIG['validate_ai_model'])
-                config['translate_ai_model'] = config.get('translate_ai_model', DEFAULT_CONFIG['translate_ai_model'])
-                config['translatable_attributes'] = config.get('translatable_attributes', DEFAULT_CONFIG['translatable_attributes'])
-                config['excluded_directories'] = config.get('excluded_directories', DEFAULT_CONFIG['excluded_directories'])
-                config['target_languages'] = config.get('target_languages', DEFAULT_CONFIG['target_languages'])
-                config['hardcoded_translations'] = config.get('hardcoded_translations', DEFAULT_CONFIG['hardcoded_translations'])
-                return config
+                config = DEFAULT_CONFIG.copy()
+                config.update(server_config)
             else:
                 print("⚠️ Warning: FastAPI server returned empty config. Using default config.")
+                config = DEFAULT_CONFIG.copy()
         else:
             print(f"⚠️ Warning: FastAPI server returned status {response.status_code}. Using default config.")
+            config = DEFAULT_CONFIG.copy()
     except Exception as e:
         print(f"⚠️ Warning: Could not fetch config from FastAPI server: {e}. Using default config.")
-    # 3. Fallback to default config
-    return DEFAULT_CONFIG
+        config = DEFAULT_CONFIG.copy()
+
+    # 2. If user config.json exists, overwrite only specified fields
+    if os.path.exists(CONFIG_FILE_PATH):
+        try:
+            with open(CONFIG_FILE_PATH, 'r') as f:
+                user_config = json.load(f)
+                print("Loaded user configuration from config.json (overwriting fields)")
+                for key, value in user_config.items():
+                    config[key] = value
+        except json.JSONDecodeError:
+            print(f"⚠️ Warning: Could not parse {CONFIG_FILE_PATH}. Using previous config.")
+
+    return config
 
 
 def is_path_excluded(file_path, excluded_dirs):
@@ -594,10 +586,6 @@ def translate_and_save(keys_to_translate, source_language, target_languages, ai_
     keys_list = list(keys_to_translate)
     translated_keys_by_language = {lang: {} for lang in target_languages}
 
-    # Load endpoints from config, fallback to OpenAI endpoint if not defined
-    config = load_config() if 'primary_translate_endpoint' not in locals() else None
-    primary_endpoint = config.get('primary_translate_endpoint', "http://localhost:8000/translate")
-    secondary_endpoint = config.get('secondary_translate_endpoint', "http://localhost:8000/translate")
     retry_attempted = False
     response = requests.post(
         primary_endpoint,
