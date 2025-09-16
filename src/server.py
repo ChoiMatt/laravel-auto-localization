@@ -52,7 +52,7 @@ def translate(req: TranslateRequest):
     texts_list = list(req.texts)
     target_languages = list(req.target_languages)
     source_language = req.source_language
-    ai_model = req.ai_model or "gpt-4o-mini"
+    ai_model = req.ai_model or "gpt-4.1-nano"
     hardcoded_translations = req.hardcoded_translations or {}
     retranslate = getattr(req, 'retranslate', False)
 
@@ -195,7 +195,7 @@ def validate(req: ValidateRequest):
         texts_content = "\n".join([f"{i+1}. {text}" for i, text in enumerate(texts_list)])
         validation_prompt = f"""You are reviewing text content found in a web application for translation purposes. \n\nFor each numbered text below, determine if it should be translated for international users or not.\n\nSHOULD BE TRANSLATED:\n- User-facing text content (buttons, labels, messages, descriptions, headings)\n- Error messages and notifications that users see\n- Complete sentences or phrases with semantic meaning that users will read\n- Navigation text, menu items, form labels\n- Standalone meaningful text without code context\n\nSHOULD NOT BE TRANSLATED:\n- CSS class names (like 'form-control', 'btn-primary', 'container-fluid', 'search-form')\n- HTML attribute values (like 'off', 'text', 'email', 'submit', 'button')\n- Database field names, API endpoints, or variable names\n- File names\n- Mixed code/text strings that contain PHP variables or functions (like "__('alt_prefix') . strip_tags($title)")\n- Partial code snippets or incomplete programming constructs\n- JavaScript class names or selectors\n- Any text that appears to be part of code rather than user-facing content\n\nCRITICAL RULES:\n1. If text contains programming keywords like 'new', '__', 'HtmlString', function calls, or appears within code syntax, it should NOT be translated\n2. If text looks like it was extracted from a line of code rather than standalone user content, it should NOT be translated  \nRespond with ONLY the numbers (separated by commas) of texts that SHOULD BE TRANSLATED.\n\nIf none should be translated, respond with 'NONE'.\n\nTexts to review:\n{texts_content}"""
 
-        ai_model = req.ai_model or "gpt-4o"
+        ai_model = req.ai_model or "gpt-4o-mini"
         chat_params = {
             "messages": [
                 {
