@@ -27,7 +27,7 @@ DEFAULT_CONFIG = {
         "vendor"
     ],
     "target_languages": ["zh_HK", "zh_CN"],
-    "validate_ai_model": "gpt-4o",
+    "validate_ai_model": "gpt-4o-mini",
     "translate_ai_model": "gpt-4.1-nano",
     "use_cmscore_ai_first": "false",
     "hardcoded_translations": {
