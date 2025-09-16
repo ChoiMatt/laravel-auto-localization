@@ -18,32 +18,52 @@ MAX_SERVICE_ENDPOINT = 'http://localhost:8000/'
 # --- Default configuration if config.json is not found ---
 DEFAULT_CONFIG = {
     "source_language": "en",
-    "translatable_attributes": ['placeholder', 'image-alt'],
-    "excluded_directories": ["dummy", "node_modules", "storage", "bootstrap", "vendor"],
+    "translatable_attributes": ["placeholder", "image-alt", "aria-label"],
+    "excluded_directories": [
+        "dummy",
+        "node_modules",
+        "storage",
+        "bootstrap",
+        "vendor"
+    ],
     "target_languages": ["zh_HK", "zh_CN"],
     "validate_ai_model": "gpt-4o",
-    "translate_ai_model": "gpt-4o-mini",
+    "translate_ai_model": "gpt-4.1-nano",
     "use_cmscore_ai_first": "false",
     "hardcoded_translations": {
         "zh_HK": {
             "Skip to main content": "跳至主要內容",
-            "Top": "頂部",
+            "Top": "置頂",
             "Home": "首頁",
             "Previous": "上一頁",
             "Next": "下一頁",
+            "Play Slide": "播放幻燈片",
+            "Pause Slide": "暫停幻燈片",
+            "Upcoming": "即將舉行",
+            "Highlight": "精選",
+            "YYYY-MM-DD": "年-月-日",
             "Whatsapp": "Whatsapp",
+            "Line": "Line",
             "Instagram": "Instagram",
-            "LinkedIn": "LinkedIn"
+            "LinkedIn": "LinkedIn",
+            "Threads": "Threads"
         },
         "zh_CN": {
             "Skip to main content": "跳至主要内容",
-            "Top": "顶部",
+            "Top": "置顶",
             "Home": "首页",
             "Previous": "上一页",
             "Next": "下一页",
+            "Play Slide": "播放幻灯片",
+            "Pause Slide": "暂停幻灯片",
+            "Upcoming": "即将举行",
+            "Highlight": "精选",
+            "YYYY-MM-DD": "年-月-日",
             "Whatsapp": "Whatsapp",
+            "Line": "Line",
             "Instagram": "Instagram",
-            "LinkedIn": "LinkedIn"
+            "LinkedIn": "LinkedIn",
+            "Threads": "Threads"
         }
     }
 }
