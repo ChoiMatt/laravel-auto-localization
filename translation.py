@@ -483,11 +483,18 @@ def update_lang_file(lang_code, new_keys, lang_dir='../lang', is_interactive=Fal
     If is_interactive=True, prompts user when existing keys would be overwritten.
     """
     if not os.path.exists(lang_dir):
-        print(f"⚠️ Warning: Could not find existing JSON file, no updates will be performed")
-        return
-        
+        os.makedirs(lang_dir, exist_ok=True)
+        abs_dir = os.path.abspath(lang_dir)
+        print(f"✅ Created language directory at: {abs_dir}")
+
     file_path = os.path.join(lang_dir, f"{lang_code}.json")
-    
+
+    # Ensure the language file exists
+    if not os.path.exists(file_path):
+        with open(file_path, 'w', encoding='utf-8') as f:
+            json.dump({}, f, indent=4, ensure_ascii=False)
+        print(f"✅ Created language file: {os.path.abspath(file_path)}")
+
     existing_translations = {}
     if os.path.exists(file_path):
         with open(file_path, 'r', encoding='utf-8') as f:
