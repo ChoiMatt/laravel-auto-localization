@@ -84,8 +84,8 @@ def translate(req: TranslateRequest):
             system_prompt_first = f"You are a professional translator. Translate the following numbered list of texts that appear on a website from English to Traditional Chinese (zh_HK) and Simplified Chinese (zh_CN).\nInstructions:\nUse formal written language only, not spoken or colloquial forms.\nFor Traditional Chinese (zh_HK), use expressions and vocabulary as spoken and written by Cantonese speakers in Hong Kong.\nFor Simplified Chinese (zh_CN), use expressions and vocabulary as spoken and written by Mainland China speakers.\nAdapt meaning for clarity and naturalness in a web context; do not translate word-for-word.\nFor each numbered text, provide translations for all languages in this format:\n\n1. [Original text]\n{format_example}\n\n2. [Next text]\n{format_example}\n\nReturn ONLY the translations in this exact format without any explanations.{hardcoded_examples}"
         else:
             system_prompt_first = f"You are a professional translator. Translate the following numbered list of texts from {source_language} to each of these languages: {', '.join(target_languages)}. For each numbered text, provide translations for all languages in this format:\n\n1. [Original text]\n{format_example}\n\n2. [Next text]\n{format_example}\n\nReturn ONLY the translations in this exact format without any explanations.{hardcoded_examples}"
-        chat_completion_first = client.chat.completions.create(
-            messages=[
+        chat_params_first = {
+            "messages": [
                 {
                     "role": "system",
                     "content": system_prompt_first,
@@ -95,8 +95,11 @@ def translate(req: TranslateRequest):
                     "content": keys_text,
                 },
             ],
-            model=ai_model,
-        )
+            "model": ai_model
+        }
+        if not ai_model.lower().startswith("gpt-5"):
+            chat_params_first["temperature"] = 0.3
+        chat_completion_first = client.chat.completions.create(**chat_params_first)
         translation_response_first = chat_completion_first.choices[0].message.content
         translations_first = {lang: {} for lang in target_languages}
         sections_first = translation_response_first.strip().split('\n\n')
@@ -131,8 +134,8 @@ def translate(req: TranslateRequest):
                 system_prompt_re = f"You are a professional translator. The previous translations for these website texts were not satisfactory. Translate the following numbered list of texts that appear on a website from English to Traditional Chinese (zh_HK) and Simplified Chinese (zh_CN).\nInstructions:\nUse formal written language only, not spoken or colloquial forms.\nFor Traditional Chinese (zh_HK), use expressions and vocabulary as spoken and written by Cantonese speakers in Hong Kong.\nFor Simplified Chinese (zh_CN), use expressions and vocabulary as spoken and written by Mainland China speakers.\nAdapt meaning for clarity and naturalness in a web context; do not translate word-for-word.\nFor each numbered text, provide translations for all languages in this format:\n\n1. [Original text]\n   zh_HK: [improved translation]\n   zh_CN: [improved translation]\n\nReturn ONLY the improved translations in this exact format without any explanations.{hardcoded_examples}"
             else:
                 system_prompt_re = f"You are a professional translator. The previous translations for these website texts were not satisfactory. Translate the following numbered list of texts from {source_language} to each of these languages: {', '.join(target_languages)}. For each numbered text, you are given the original text and the first translation for each target language. Provide a different, better translation for each language.\nInstructions:\nUse formal written language only, not spoken or colloquial forms.\nDo NOT translate word-for-word; adapt the meaning for clarity and naturalness in context.\nFor each numbered text, provide translations for all languages in this format:\n\n1. [Original text]\n{format_example}\n\nReturn ONLY the improved translations in this exact format without any explanations.{hardcoded_examples}"
-            chat_completion_re = client.chat.completions.create(
-                messages=[
+            chat_params_re = {
+                "messages": [
                     {
                         "role": "system",
                         "content": system_prompt_re,
@@ -142,8 +145,11 @@ def translate(req: TranslateRequest):
                         "content": re_keys_text,
                     },
                 ],
-                model=ai_model,
-            )
+                "model": ai_model
+            }
+            if not ai_model.lower().startswith("gpt-5"):
+                chat_params_re["temperature"] = 0.3
+            chat_completion_re = client.chat.completions.create(**chat_params_re)
             translation_response_re = chat_completion_re.choices[0].message.content
             translations_re = {lang: {} for lang in target_languages}
             sections_re = translation_response_re.strip().split('\n\n')
@@ -189,8 +195,9 @@ def validate(req: ValidateRequest):
         texts_content = "\n".join([f"{i+1}. {text}" for i, text in enumerate(texts_list)])
         validation_prompt = f"""You are reviewing text content found in a web application for translation purposes. \n\nFor each numbered text below, determine if it should be translated for international users or not.\n\nSHOULD BE TRANSLATED:\n- User-facing text content (buttons, labels, messages, descriptions, headings)\n- Error messages and notifications that users see\n- Complete sentences or phrases with semantic meaning that users will read\n- Navigation text, menu items, form labels\n- Standalone meaningful text without code context\n\nSHOULD NOT BE TRANSLATED:\n- CSS class names (like 'form-control', 'btn-primary', 'container-fluid', 'search-form')\n- HTML attribute values (like 'off', 'text', 'email', 'submit', 'button')\n- Database field names, API endpoints, or variable names\n- File names\n- Mixed code/text strings that contain PHP variables or functions (like "__('alt_prefix') . strip_tags($title)")\n- Partial code snippets or incomplete programming constructs\n- JavaScript class names or selectors\n- Any text that appears to be part of code rather than user-facing content\n\nCRITICAL RULES:\n1. If text contains programming keywords like 'new', '__', 'HtmlString', function calls, or appears within code syntax, it should NOT be translated\n2. If text looks like it was extracted from a line of code rather than standalone user content, it should NOT be translated  \nRespond with ONLY the numbers (separated by commas) of texts that SHOULD BE TRANSLATED.\n\nIf none should be translated, respond with 'NONE'.\n\nTexts to review:\n{texts_content}"""
 
-        chat_completion = client.chat.completions.create(
-            messages=[
+        ai_model = req.ai_model or "gpt-4o"
+        chat_params = {
+            "messages": [
                 {
                     "role": "system",
                     "content": "You are an expert in internationalization and localization. You help identify which text content in web applications should be translated for international users."
@@ -200,9 +207,11 @@ def validate(req: ValidateRequest):
                     "content": validation_prompt
                 }
             ],
-            model=req.ai_model or "gpt-4o",
-            temperature=0.1
-        )
+            "model": ai_model
+        }
+        if not ai_model.lower().startswith("gpt-5"):
+            chat_params["temperature"] = 0.1
+        chat_completion = client.chat.completions.create(**chat_params)
         response = chat_completion.choices[0].message.content.strip()
         if response.upper() == "NONE":
             return {"validated": []}
