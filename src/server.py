@@ -207,7 +207,7 @@ def translate(req: TranslateRequest):
                                     translation = translation.rstrip('.')
                                 translations_re[target_language][original_key] = translation
                                 break
-            return {"translations": translations_first, "retranslations": translations_re}
+            return {"translations": translations_re}
         else:
             return {"translations": translations_first}
     except Exception as e:
