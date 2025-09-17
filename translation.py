@@ -835,7 +835,7 @@ def translate_and_save(keys_to_translate, source_language, target_languages, ai_
                     if use_cmscore_ai_first:
                         retranslate_results = response.json().get("translations", {})
                     else:
-                        retranslate_results = parse_request_output(response.json(), keys_list, target_languages).get("translations", {})
+                        retranslate_results = parse_request_output(response.json(), keys_to_retranslate, target_languages).get("translations", {})
                     for original_key in keys_to_retranslate:
                         print(f"\n--- Retranslation Review ---")
                         print(f"Original: '{original_key}'")
