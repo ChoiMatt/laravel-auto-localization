@@ -658,8 +658,7 @@ def translate_and_save(keys_to_translate, source_language, target_languages, ai_
     print(f"\n--- Translating {len(keys_to_translate)} keys to {', '.join(target_languages)}... ---")
     keys_list = list(keys_to_translate)
     translated_keys_by_language = {lang: {} for lang in target_languages}
-
-    retry_attempted = False
+    using_cmscore_ai = use_cmscore_ai_first
     primary_endpoint = API_SERVICE_ENDPOINT+"translate"
     secondary_endpoint = MAX_SERVICE_ENDPOINT+ai_model
     primary_headers = None
@@ -710,23 +709,33 @@ def translate_and_save(keys_to_translate, source_language, target_languages, ai_
         primary_headers, secondary_headers = secondary_headers, primary_headers
         primary_body, secondary_body = secondary_body, primary_body
 
-    response = requests.post(
-        primary_endpoint,
-        json=primary_body,
-        headers=primary_headers,
-        timeout=60
-    )
-    while response.status_code != 200 and not retry_attempted:
-        retry_attempted = True
-        print(f"⚠️ Warning: Translation API request failed with status {response.status_code}, retrying...")
+    try:
         response = requests.post(
-            secondary_endpoint,
-            json=secondary_body,
-            headers=secondary_headers,
+            primary_endpoint,
+            json=primary_body,
+            headers=primary_headers,
             timeout=60
         )
-    if response.status_code == 200:
-        if use_cmscore_ai_first:
+    except Exception as e:
+        print(f"❌ Error: Primary translation endpoint exception: {e}")
+        response = None
+
+    if not response or response.status_code != 200:
+        print(f"⚠️ Warning: Translation request to {primary_endpoint} failed, retrying...")
+        using_cmscore_ai = not using_cmscore_ai
+        try:
+            response = requests.post(
+                secondary_endpoint,
+                json=secondary_body,
+                headers=secondary_headers,
+                timeout=60
+            )
+        except Exception as e:
+            print(f"❌ Error: Secondary translation endpoint exception: {e}")
+            response = None
+
+    if response and response.status_code == 200:
+        if using_cmscore_ai:
             translations = parse_request_output(response.json(), keys_list, target_languages).get("translations", {})
         else:
             translations = response.json().get("translations", {})
@@ -812,13 +821,17 @@ def translate_and_save(keys_to_translate, source_language, target_languages, ai_
                             ]
                         }
                     }
-                response = requests.post(
-                    secondary_endpoint,
-                    json=secondary_retranslate_body,
-                    headers=secondary_headers,
-                    timeout=60
-                )
-                if response.status_code == 200:
+                try:
+                    response = requests.post(
+                        secondary_endpoint,
+                        json=secondary_retranslate_body,
+                        headers=secondary_headers,
+                        timeout=60
+                    )
+                except Exception as e:
+                    print(f"❌ Error: Secondary translation endpoint exception: {e}")
+                    response = None
+                if response and response.status_code == 200:
                     if use_cmscore_ai_first:
                         retranslate_results = response.json().get("translations", {})
                     else:
