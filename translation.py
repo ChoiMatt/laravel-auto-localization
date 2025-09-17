@@ -13,7 +13,7 @@ warnings.filterwarnings("ignore", category=DeprecationWarning, message="int argu
 GRAMMAR_LIB_PATH = 'build/blade-grammar.so'
 CONFIG_FILE_PATH = 'config.json'
 API_SERVICE_ENDPOINT = 'http://localhost:8000/'
-MAX_SERVICE_ENDPOINT = 'http://localhost:8000/'
+MAX_SERVICE_ENDPOINT = 'http://localhost:8080/tasks/translation/'
 
 # --- Default configuration if config.json is not found ---
 DEFAULT_CONFIG = {
@@ -30,6 +30,7 @@ DEFAULT_CONFIG = {
     "validate_ai_model": "gpt-4o-mini",
     "translate_ai_model": "gpt-4.1-nano",
     "use_cmscore_ai_first": False,
+    "cmscore_ai_token": "arstneio",
     "hardcoded_translations": {
         "zh_HK": {
             "Skip to main content": "跳至主要內容",
@@ -608,7 +609,49 @@ def filter_existing_keys(keys_to_check, target_language, lang_dir='../lang'):
     
     return filtered_keys
 
-def translate_and_save(keys_to_translate, source_language, target_languages, ai_model, hardcoded_translations=None, use_cmscore_ai_first=False, is_interactive=False):
+def gen_format_example(target_languages):
+    format_example_lines = []
+    for lang in target_languages:
+        format_example_lines.append(f"   {lang}: [translation]")
+    return "\n".join(format_example_lines)
+
+def gen_hardcoded_example(hardcoded_translations, target_languages):
+    hardcoded_examples = ""
+    for target_language in target_languages:
+        if target_language in hardcoded_translations:
+            language_translations = hardcoded_translations.get(target_language, {})
+            if language_translations:
+                hardcoded_examples += f"\n\nFor {target_language}, prefer these translations when applicable:\n"
+                for key, value in language_translations.items():
+                    hardcoded_examples += f"- '{key}' → '{value}'\n"
+    if hardcoded_examples:
+        hardcoded_examples += "\nUse these preferred translations when the terms appear standalone or can be naturally incorporated."
+    return hardcoded_examples
+
+def parse_request_output(response_text, texts_list, target_languages):
+    translations = {lang: {} for lang in target_languages}
+    sections = response_text.strip().split('\n\n')
+    for i, original_key in enumerate(texts_list):
+        if i < len(sections):
+            section = sections[i].strip()
+            lines = section.split('\n')
+            for line in lines[1:]:
+                line = line.strip()
+                if not line:
+                    continue
+                for target_language in target_languages:
+                    if line.startswith(f"{target_language}:"):
+                        translation = line[len(f"{target_language}:"):].strip()
+                        if (translation.startswith('"') and translation.endswith('"')) or \
+                            (translation.startswith("'") and translation.endswith("'")):
+                            translation = translation[1:-1]
+                        if not original_key.endswith('.') and translation.endswith('.'):
+                            translation = translation.rstrip('.')
+                        translations[target_language][original_key] = translation
+                        break
+    return {"translations": translations}
+
+def translate_and_save(keys_to_translate, source_language, target_languages, ai_model, cmscore_ai_token, hardcoded_translations=None, use_cmscore_ai_first=False, is_interactive=False):
     """
     Translates keys using OpenAI and saves them to language files.
     """
@@ -618,17 +661,59 @@ def translate_and_save(keys_to_translate, source_language, target_languages, ai_
 
     retry_attempted = False
     primary_endpoint = API_SERVICE_ENDPOINT+"translate"
-    secondary_endpoint = MAX_SERVICE_ENDPOINT+"translate"
+    secondary_endpoint = MAX_SERVICE_ENDPOINT+ai_model
+    primary_headers = None
+    primary_body = {
+        "texts": keys_list,
+        "source_language": source_language,
+        "target_languages": target_languages,
+        "ai_model": ai_model,
+        "hardcoded_translations": hardcoded_translations,
+        "retranslate": False
+    }
+    secondary_headers = {
+        "Authorization": f"Bearer {cmscore_ai_token}",
+        "Content-Type": "application/json"
+    }
+
+    format_example = gen_format_example(target_languages)
+    hardcoded_examples = gen_hardcoded_example(hardcoded_translations, target_languages)
+
+    keys_text = "\n".join([f"{i+1}. {key}" for i, key in enumerate(keys_list)])
+
+    system_prompt_first = "\n".join([
+        f"You are a professional translator. Translate the following numbered list of texts from {source_language} to each of these languages: {', '.join(target_languages)}.",
+        "Instructions:",
+        "Use formal written language only, not spoken or colloquial forms.",
+        "Use regionally appropriate vocabulary, expressions, and tone.",
+        "Adapt meaning for clarity and naturalness in a web context; do not translate word-for-word.",
+        f"For each numbered text, provide translations for all languages in this format:\n\n1. [Original text]\n{format_example}\n\n2. [Next text]\n{format_example}",
+        f"Return ONLY the translations in this exact format without any explanations.{hardcoded_examples}"
+    ])
+
+    secondary_body = {
+        "state": {
+            "prompt": [
+                {
+                    "role": "system",
+                    "content": system_prompt_first
+                },
+                {
+                    "role": "user",
+                    "content": "Translate the following text based on the instructions. You can refer to <context> to reference similar text.\n<context>\n{context}\n</context>\n"+keys_text
+                }
+            ]
+        }
+    }
+    if use_cmscore_ai_first:
+        primary_endpoint, secondary_endpoint = secondary_endpoint, primary_endpoint
+        primary_headers, secondary_headers = secondary_headers, primary_headers
+        primary_body, secondary_body = secondary_body, primary_body
+
     response = requests.post(
         primary_endpoint,
-        json={
-            "texts": keys_list,
-            "source_language": source_language,
-            "target_languages": target_languages,
-            "ai_model": ai_model,
-            "hardcoded_translations": hardcoded_translations,
-            "retranslate": False
-        },
+        json=primary_body,
+        headers=primary_headers,
         timeout=60
     )
     while response.status_code != 200 and not retry_attempted:
@@ -636,19 +721,16 @@ def translate_and_save(keys_to_translate, source_language, target_languages, ai_
         print(f"⚠️ Warning: Translation API request failed with status {response.status_code}, retrying...")
         response = requests.post(
             secondary_endpoint,
-            json={
-                "texts": keys_list,
-                "source_language": source_language,
-                "target_languages": target_languages,
-                "ai_model": ai_model,
-                "hardcoded_translations": hardcoded_translations,
-                "retranslate": False
-            },
+            json=secondary_body,
+            headers=secondary_headers,
             timeout=60
         )
     if response.status_code == 200:
-        if is_interactive:
+        if use_cmscore_ai_first:
+            translations = parse_request_output(response.json(), keys_list, target_languages).get("translations", {})
+        else:
             translations = response.json().get("translations", {})
+        if is_interactive:
             keys_to_retranslate = []
             # Store first translation for later reference
             first_translations = {lang: dict(translations.get(lang, {})) for lang in target_languages}
@@ -687,9 +769,8 @@ def translate_and_save(keys_to_translate, source_language, target_languages, ai_
                         key: first_translations.get(lang, {}).get(key, "")
                         for key in keys_to_retranslate
                     }
-                response = requests.post(
-                    secondary_endpoint,
-                    json={
+                if use_cmscore_ai_first:
+                    secondary_retranslate_body = {
                         "texts": keys_to_retranslate,
                         "source_language": source_language,
                         "target_languages": target_languages,
@@ -697,11 +778,51 @@ def translate_and_save(keys_to_translate, source_language, target_languages, ai_
                         "hardcoded_translations": hardcoded_translations,
                         "retranslate": True,
                         "first_translations": first_translations_payload
-                    },
+                    }
+                else:
+                    system_prompt_re = "\n".join([
+                        f"You are a professional translator. The previous translations for these website texts were not satisfactory. Translate the following numbered list of texts from {source_language} to each of these languages: {', '.join(target_languages)}.",
+                        "For each numbered text, you are given the original text and the first translation for each target language. Provide a different, better translation for each language.",
+                        "Instructions:",
+                        "Use formal written language only, not spoken or colloquial forms.",
+                        "Use regionally appropriate vocabulary, expressions, and tone.",
+                        "Adapt meaning for clarity and naturalness in a web context; do not translate word-for-word.",
+                        f"For each numbered text, provide translations for all languages in this format:\n\n1. [Original text]\n{format_example}\n\n2. [Next text]\n{format_example}",
+                        f"Return ONLY the improved translations in this exact format without any explanations.{hardcoded_examples}"
+                    ])
+
+                    re_keys_text = ""
+                    for i, key in enumerate(keys_to_retranslate):
+                        re_keys_text += f"{i+1}. {key}\n"
+                        for lang in target_languages:
+                            first_tr = first_translations_payload.get(lang, {}).get(key, "")
+                            re_keys_text += f"   {lang} (first): {first_tr}\n"
+
+                    secondary_retranslate_body = {
+                        "state": {
+                            "prompt": [
+                                {
+                                    "role": "system",
+                                    "content": system_prompt_re
+                                },
+                                {
+                                    "role": "user",
+                                    "content": "Translate the following text based on the instructions. You can refer to <context> to reference similar text.\n<context>\n{context}\n</context>\n"+re_keys_text
+                                }
+                            ]
+                        }
+                    }
+                response = requests.post(
+                    secondary_endpoint,
+                    json=secondary_retranslate_body,
+                    headers=secondary_headers,
                     timeout=60
                 )
                 if response.status_code == 200:
-                    retranslate_results = response.json().get("translations", {})
+                    if use_cmscore_ai_first:
+                        retranslate_results = response.json().get("translations", {})
+                    else:
+                        retranslate_results = parse_request_output(response.json(), keys_list, target_languages).get("translations", {})
                     for original_key in keys_to_retranslate:
                         print(f"\n--- Retranslation Review ---")
                         print(f"Original: '{original_key}'")
@@ -736,7 +857,6 @@ def translate_and_save(keys_to_translate, source_language, target_languages, ai_
                             translated_keys_by_language[lang][original_key] = first_translation
                             print(f"✅ Fallback: Using first translation for {lang}: '{original_key}' -> '{first_translation}'")
         else:
-            translations = response.json().get("translations", {})
             for lang in target_languages:
                 for original_key in keys_list:
                     translation = translations.get(lang, {}).get(original_key, original_key)
@@ -770,6 +890,7 @@ def main():
     validate_ai_model = config['validate_ai_model']
     translate_ai_model = config['translate_ai_model']
     use_cmscore_ai_first = config['use_cmscore_ai_first']
+    cmscore_ai_token = config['cmscore_ai_token']
     hardcoded_translations = config['hardcoded_translations']
 
     if not os.path.exists(GRAMMAR_LIB_PATH):
@@ -834,7 +955,7 @@ def main():
         # If any languages need translation, make a single API call for all
         if all_filtered_keys and languages_needing_translation:
             if not args.no_translate:
-                translate_and_save(all_filtered_keys, source_language, languages_needing_translation, translate_ai_model, hardcoded_translations, use_cmscore_ai_first, args.interactive)
+                translate_and_save(all_filtered_keys, source_language, languages_needing_translation, translate_ai_model, cmscore_ai_token, hardcoded_translations, use_cmscore_ai_first, args.interactive)
             else:
                 # For --no-translate, create empty translations for each language
                 for target_language in languages_needing_translation:
