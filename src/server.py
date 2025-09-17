@@ -165,7 +165,7 @@ def translate(req: TranslateRequest):
                     f"You are a professional translator. The previous translations for these website texts were not satisfactory. Translate the following numbered list of texts from {source_language} to each of these languages: {', '.join(target_languages)}.",
                     "For each numbered text, you are given the original text and the first translation for each target language. Provide a different, better translation for each language.",
                     "Instructions:",
-                    "Do not reuse the previous translations; provide new, improved translations.",
+                    "DO NOT reuse the previous translations; provide NEW, improved translations.",
                     "Use formal written language only, not spoken or colloquial forms.",
                     "Use regionally appropriate vocabulary, expressions, and tone.",
                     "Adapt meaning for clarity and naturalness in a web context; do not translate word-for-word.",
