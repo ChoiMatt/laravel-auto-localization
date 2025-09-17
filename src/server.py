@@ -81,9 +81,26 @@ def translate(req: TranslateRequest):
     try:
         # First translation
         if specific_translate:
-            system_prompt_first = f"You are a professional translator. Translate the following numbered list of texts that appear on a website from English to Traditional Chinese (zh_HK) and Simplified Chinese (zh_CN).\nInstructions:\nUse formal written language only, not spoken or colloquial forms.\nFor Traditional Chinese (zh_HK), use expressions and vocabulary as spoken and written by Cantonese speakers in Hong Kong.\nFor Simplified Chinese (zh_CN), use expressions and vocabulary as spoken and written by Mainland China speakers.\nAdapt meaning for clarity and naturalness in a web context; do not translate word-for-word.\nFor each numbered text, provide translations for all languages in this format:\n\n1. [Original text]\n{format_example}\n\n2. [Next text]\n{format_example}\n\nReturn ONLY the translations in this exact format without any explanations.{hardcoded_examples}"
+            system_prompt_first = "\n".join([
+                "You are a professional translator. Translate the following numbered list of texts that appear on a website from English to Traditional Chinese (zh_HK) and Simplified Chinese (zh_CN).",
+                "Instructions:",
+                "Use formal written language only, not spoken or colloquial forms.",
+                "For Traditional Chinese (zh_HK), use expressions and vocabulary as spoken and written by Cantonese speakers in Hong Kong.",
+                "For Simplified Chinese (zh_CN), use expressions and vocabulary as spoken and written by Mainland China speakers.",
+                "Adapt meaning for clarity and naturalness in a web context; do not translate word-for-word.",
+                f"For each numbered text, provide translations for all languages in this format:\n\n1. [Original text]\n{format_example}\n\n2. [Next text]\n{format_example}",
+                f"Return ONLY the translations in this exact format without any explanations.{hardcoded_examples}"
+            ])
         else:
-            system_prompt_first = f"You are a professional translator. Translate the following numbered list of texts from {source_language} to each of these languages: {', '.join(target_languages)}. For each numbered text, provide translations for all languages in this format:\n\n1. [Original text]\n{format_example}\n\n2. [Next text]\n{format_example}\n\nReturn ONLY the translations in this exact format without any explanations.{hardcoded_examples}"
+            system_prompt_first = "\n".join([
+                f"You are a professional translator. Translate the following numbered list of texts from {source_language} to each of these languages: {', '.join(target_languages)}.",
+                "Instructions:",
+                "Use formal written language only, not spoken or colloquial forms.",
+                "Use regionally appropriate vocabulary, expressions, and tone.",
+                "Adapt meaning for clarity and naturalness in a web context; do not translate word-for-word.",
+                f"For each numbered text, provide translations for all languages in this format:\n\n1. [Original text]\n{format_example}\n\n2. [Next text]\n{format_example}",
+                f"Return ONLY the translations in this exact format without any explanations.{hardcoded_examples}"
+            ])
         chat_params_first = {
             "messages": [
                 {
@@ -131,9 +148,28 @@ def translate(req: TranslateRequest):
                     first_tr = first_translations.get(lang, {}).get(key, "")
                     re_keys_text += f"   {lang} (first): {first_tr}\n"
             if specific_translate:
-                system_prompt_re = f"You are a professional translator. The previous translations for these website texts were not satisfactory. Translate the following numbered list of texts that appear on a website from English to Traditional Chinese (zh_HK) and Simplified Chinese (zh_CN).\nInstructions:\nUse formal written language only, not spoken or colloquial forms.\nFor Traditional Chinese (zh_HK), use expressions and vocabulary as spoken and written by Cantonese speakers in Hong Kong.\nFor Simplified Chinese (zh_CN), use expressions and vocabulary as spoken and written by Mainland China speakers.\nAdapt meaning for clarity and naturalness in a web context; do not translate word-for-word.\nFor each numbered text, provide translations for all languages in this format:\n\n1. [Original text]\n   zh_HK: [improved translation]\n   zh_CN: [improved translation]\n\nReturn ONLY the improved translations in this exact format without any explanations.{hardcoded_examples}"
+                system_prompt_re = "\n".join([
+                    "You are a professional translator. The previous translations for these website texts were not satisfactory. Translate the following numbered list of texts that appear on a website from English to Traditional Chinese (zh_HK) and Simplified Chinese (zh_CN).",
+                    "For each numbered text, you are given the original text and the first translation for each target language. Provide a different, better translation for each language.",
+                    "Instructions:",
+                    "Use formal written language only, not spoken or colloquial forms.",
+                    "For Traditional Chinese (zh_HK), use expressions and vocabulary as spoken and written by Cantonese speakers in Hong Kong.",
+                    "For Simplified Chinese (zh_CN), use expressions and vocabulary as spoken and written by Mainland China speakers.",
+                    "Adapt meaning for clarity and naturalness in a web context; do not translate word-for-word.",
+                    f"For each numbered text, provide translations for all languages in this format:\n\n1. [Original text]\n{format_example}\n\n2. [Next text]\n{format_example}",
+                    f"Return ONLY the improved translations in this exact format without any explanations.{hardcoded_examples}"
+                ])
             else:
-                system_prompt_re = f"You are a professional translator. The previous translations for these website texts were not satisfactory. Translate the following numbered list of texts from {source_language} to each of these languages: {', '.join(target_languages)}. For each numbered text, you are given the original text and the first translation for each target language. Provide a different, better translation for each language.\nInstructions:\nUse formal written language only, not spoken or colloquial forms.\nDo NOT translate word-for-word; adapt the meaning for clarity and naturalness in context.\nFor each numbered text, provide translations for all languages in this format:\n\n1. [Original text]\n{format_example}\n\nReturn ONLY the improved translations in this exact format without any explanations.{hardcoded_examples}"
+                system_prompt_re = "\n".join([
+                    f"You are a professional translator. The previous translations for these website texts were not satisfactory. Translate the following numbered list of texts from {source_language} to each of these languages: {', '.join(target_languages)}.",
+                    "For each numbered text, you are given the original text and the first translation for each target language. Provide a different, better translation for each language.",
+                    "Instructions:",
+                    "Use formal written language only, not spoken or colloquial forms.",
+                    "Use regionally appropriate vocabulary, expressions, and tone.",
+                    "Adapt meaning for clarity and naturalness in a web context; do not translate word-for-word.",
+                    f"For each numbered text, provide translations for all languages in this format:\n\n1. [Original text]\n{format_example}\n\n2. [Next text]\n{format_example}",
+                    f"Return ONLY the improved translations in this exact format without any explanations.{hardcoded_examples}"
+                ])
             chat_params_re = {
                 "messages": [
                     {
