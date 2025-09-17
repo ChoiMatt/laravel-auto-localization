@@ -29,7 +29,7 @@ DEFAULT_CONFIG = {
     "target_languages": ["zh_HK", "zh_CN"],
     "validate_ai_model": "gpt-4o-mini",
     "translate_ai_model": "gpt-4.1-nano",
-    "use_cmscore_ai_first": "false",
+    "use_cmscore_ai_first": False,
     "hardcoded_translations": {
         "zh_HK": {
             "Skip to main content": "跳至主要內容",
