@@ -793,6 +793,7 @@ def translate_and_save(keys_to_translate, source_language, target_languages, ai_
                         f"You are a professional translator. The previous translations for these website texts were not satisfactory. Translate the following numbered list of texts from {source_language} to each of these languages: {', '.join(target_languages)}.",
                         "For each numbered text, you are given the original text and the first translation for each target language. Provide a different, better translation for each language.",
                         "Instructions:",
+                        "DO NOT reuse the previous translations; provide NEW, improved translations.",
                         "Use formal written language only, not spoken or colloquial forms.",
                         "Use regionally appropriate vocabulary, expressions, and tone.",
                         "Adapt meaning for clarity and naturalness in a web context; do not translate word-for-word.",
@@ -848,16 +849,16 @@ def translate_and_save(keys_to_translate, source_language, target_languages, ai_
                                 choice = input(f"Choose translation for {lang}: (1) First / (2) Retranslation / (m) Manual: ").strip().lower()
                                 if choice == '1':
                                     translated_keys_by_language[lang][original_key] = first_translation
-                                    print(f"✅ Using first translation for {lang}: '{original_key}' -> '{first_translation}'")
+                                    print(f"\n✅ Using first translation for {lang}: '{original_key}' -> '{first_translation}'\n")
                                     break
                                 elif choice == '2':
                                     translated_keys_by_language[lang][original_key] = retranslation
-                                    print(f"✅ Using retranslation for {lang}: '{original_key}' -> '{retranslation}'")
+                                    print(f"\n✅ Using retranslation for {lang}: '{original_key}' -> '{retranslation}'\n")
                                     break
                                 elif choice == 'm':
                                     manual_translation = input(f"Enter manual translation for {lang}: ").strip()
                                     translated_keys_by_language[lang][original_key] = manual_translation
-                                    print(f"✅ Using manual {lang}: '{original_key}' -> '{manual_translation}'")
+                                    print(f"\n✅ Using manual {lang}: '{original_key}' -> '{manual_translation}'\n")
                                     break
                                 else:
                                     print("Please enter '1', '2', or 'm'")
