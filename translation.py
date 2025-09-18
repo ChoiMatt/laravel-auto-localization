@@ -503,6 +503,8 @@ def update_lang_file(lang_code, new_keys, lang_dir='../lang', is_interactive=Fal
     Updates a specific language JSON file with new keys.
     If is_interactive=True, prompts user when existing keys would be overwritten.
     """
+    lang_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), lang_dir)
+    lang_dir = os.path.normpath(lang_dir)
     if not os.path.exists(lang_dir):
         os.makedirs(lang_dir, exist_ok=True)
         abs_dir = os.path.abspath(lang_dir)
@@ -589,6 +591,8 @@ def filter_existing_keys(keys_to_check, target_language, lang_dir='../lang'):
     Filters out keys that already exist in the target language file.
     Returns a new set with only the keys that need translation.
     """
+    lang_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), lang_dir)
+    lang_dir = os.path.normpath(lang_dir)
     lang_file_path = os.path.join(lang_dir, f"{target_language}.json")
     existing_translations = {}
     
