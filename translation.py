@@ -867,7 +867,10 @@ def translate_and_save(keys_to_translate, source_language, target_languages, ai_
                                 else:
                                     print("Please enter '1', '2', or 'm'")
                 else:
-                    print(f"❌ Error: Secondary translation endpoint retranslate failed with status {response.status_code}")
+                    if response:
+                        print(f"❌ Error: Secondary translation endpoint retranslate failed with status {response.status_code}")
+                    else:
+                        print(f"❌ Error: Secondary translation endpoint retranslate failed: No response received.")
                     print(f"Falling back to first translation for all retranslated keys.")
                     for original_key in keys_to_retranslate:
                         for lang in target_languages:
@@ -881,7 +884,10 @@ def translate_and_save(keys_to_translate, source_language, target_languages, ai_
                     translated_keys_by_language[lang][original_key] = translation
                     print(f"  {lang}: '{original_key}' -> '{translation}'")
     else:
-        print(f"❌ Error: Translation endpoint failed with status {response.status_code}")
+        if response:
+            print(f"❌ Error: Translation endpoint failed with status {response.status_code}")
+        else:
+            print(f"❌ Error: Translation endpoint failed: No response received.")
         for lang in target_languages:
             for original_key in keys_list:
                 translated_keys_by_language[lang][original_key] = ""
