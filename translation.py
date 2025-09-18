@@ -11,7 +11,7 @@ warnings.filterwarnings("ignore", category=DeprecationWarning, message="int argu
 
 # --- Configuration ---
 GRAMMAR_LIB_PATH = 'build/blade-grammar.so'
-CONFIG_FILE_PATH = 'config.json'
+CONFIG_FILE_PATH = os.path.normpath(os.path.join(os.path.dirname(__file__), 'config.json'))
 API_SERVICE_ENDPOINT = 'http://localhost:8000/'
 MAX_SERVICE_ENDPOINT = 'http://localhost:8080/tasks/translation/'
 
