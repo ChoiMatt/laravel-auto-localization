@@ -87,6 +87,7 @@ def translate(req: TranslateRequest):
                 "Use formal written language only, not spoken or colloquial forms.",
                 "For Traditional Chinese (zh_HK), use expressions and vocabulary as spoken and written by Cantonese speakers in Hong Kong.",
                 "For Simplified Chinese (zh_CN), use expressions and vocabulary as spoken and written by Mainland China speakers.",
+                "If it is appropriate, try to use similar sentence structure and vocabulary in both Traditional Chinese and Simplified Chinese translations, to maintain consistency and clarity across both versions.",
                 "Adapt meaning for clarity and naturalness in a web context; do not translate word-for-word.",
                 f"For each numbered text, provide translations for all languages in this format:\n\n1. [Original text]\n{format_example}\n\n2. [Next text]\n{format_example}",
                 f"Return ONLY the translations in this exact format without any explanations.{hardcoded_examples}"
@@ -152,10 +153,11 @@ def translate(req: TranslateRequest):
                     "You are a professional translator. The previous translations for these website texts were not satisfactory. Translate the following numbered list of texts that appear on a website from English to Traditional Chinese (zh_HK) and Simplified Chinese (zh_CN).",
                     "For each numbered text, you are given the original text and the first translation for each target language. Provide a different, better translation for each language.",
                     "Instructions:",
-                    "Do not reuse the previous translations; provide new, improved translations.",
+                    "DO NOT reuse the previous translations; provide NEW, improved translations.",
                     "Use formal written language only, not spoken or colloquial forms.",
                     "For Traditional Chinese (zh_HK), use expressions and vocabulary as spoken and written by Cantonese speakers in Hong Kong.",
                     "For Simplified Chinese (zh_CN), use expressions and vocabulary as spoken and written by Mainland China speakers.",
+                    "If it is appropriate, try to use similar sentence structure and vocabulary in both Traditional Chinese and Simplified Chinese translations, to maintain consistency and clarity across both versions.",
                     "Adapt meaning for clarity and naturalness in a web context; do not translate word-for-word.",
                     f"For each numbered text, provide translations for all languages in this format:\n\n1. [Original text]\n{format_example}\n\n2. [Next text]\n{format_example}",
                     f"Return ONLY the improved translations in this exact format without any explanations.{hardcoded_examples}"
