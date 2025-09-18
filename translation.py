@@ -24,8 +24,12 @@ DEFAULT_CONFIG = {
         "node_modules",
         "storage",
         "bootstrap",
-        "vendor"
+        "config",
+        "database",
+        "vendor",
+        "resources/views/components"
     ],
+    "whitelist_directories": ["vendor/frontend"],
     "target_languages": ["zh_HK", "zh_CN"],
     "validate_ai_model": "gpt-4o-mini",
     "translate_ai_model": "gpt-4.1-nano",
