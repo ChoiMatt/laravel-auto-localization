@@ -6,7 +6,10 @@
         "node_modules",
         "storage",
         "bootstrap",
-        "vendor"
+        "config",
+        "database",
+        "vendor",
+        "resources/views/components"
     ],
     "target_languages": ["zh_HK", "zh_CN"],
     "validate_ai_model": "gpt-4o-mini",
