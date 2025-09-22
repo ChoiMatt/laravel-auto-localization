@@ -898,7 +898,7 @@ def translate_and_save(keys_to_translate, source_language, target_languages, ai_
                 for original_key in keys_list:
                     translation = translations.get(lang, {}).get(original_key, original_key)
                     translated_keys_by_language[lang][original_key] = translation
-                    print(f"  {lang}: '{original_key}' -> '{translation}'")
+                    # print(f"  {lang}: '{original_key}' -> '{translation}'")
     else:
         if response:
             print(f"❌ Error: Translation endpoint failed with status {response.status_code}")
