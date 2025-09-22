@@ -9,6 +9,9 @@ import requests
 # Suppress the specific DeprecationWarning from py-tree-sitter for cleaner output
 warnings.filterwarnings("ignore", category=DeprecationWarning, message="int argument support is deprecated")
 
+# --- Global for removed/filtered texts summary ---
+REMOVED_TEXTS_SUMMARY = []  # List of tuples: (removed_text, file_path)
+
 # --- Configuration ---
 GRAMMAR_LIB_PATH = 'build/blade-grammar.so'
 CONFIG_FILE_PATH = os.path.normpath(os.path.join(os.path.dirname(__file__), 'config.json'))
@@ -444,7 +447,9 @@ def validate_translatable_content(texts_to_validate, ai_model):
             if removed_count > 0:
                 print(f"🔍 AI Validation: Removed {removed_count} non-semantic texts from translation queue")
                 removed_texts = [text for text in texts_to_validate if text not in validated]
+                # Add to global summary (file_path will be set by process_file)
                 for removed in removed_texts:
+                    REMOVED_TEXTS_SUMMARY.append((removed, None))
                     print(f"  ❌ Removed: '{removed}'")
             if not validated:
                 print("🔍 AI Validation: No texts deemed suitable for translation")
@@ -479,7 +484,15 @@ def process_file(file_path, parser, is_interactive, translatable_attributes, val
     if validate:
         original_texts = [change['text'] for change in nodes_to_wrap]
         validated_texts = validate_translatable_content(original_texts, validate_ai_model)
-        
+        # If any were removed, update their file_path in the global summary
+        removed_texts = [text for text in original_texts if text not in validated_texts]
+        if removed_texts:
+            for removed in removed_texts:
+                # Find the last entry for this text with None file_path and set it
+                for i in range(len(REMOVED_TEXTS_SUMMARY)-1, -1, -1):
+                    if REMOVED_TEXTS_SUMMARY[i][0] == removed and REMOVED_TEXTS_SUMMARY[i][1] is None:
+                        REMOVED_TEXTS_SUMMARY[i] = (removed, file_path)
+                        break
         # Filter nodes_to_wrap to only include validated texts
         if len(validated_texts) < len(original_texts):
             validated_nodes = []
@@ -487,7 +500,6 @@ def process_file(file_path, parser, is_interactive, translatable_attributes, val
                 if change['text'] in validated_texts:
                     validated_nodes.append(change)
             nodes_to_wrap = validated_nodes
-            
             if not nodes_to_wrap:
                 print("No semantically meaningful text found after AI validation.")
                 return []
@@ -993,6 +1005,15 @@ def main():
                     print(f"Added {len(filtered_keys_for_lang)} new empty keys to {target_language}.json for future translation")
     else:
         print("\nNo new translatable text found in the provided files. No updates made to language files.")
+
+    # --- Print summary of removed/skipped texts at the end ---
+    if REMOVED_TEXTS_SUMMARY:
+        print("\n--- Summary of AI Validation: ❌ Skipped Non-Semantic Texts ---")
+        for removed, file_path in REMOVED_TEXTS_SUMMARY:
+            if file_path:
+                print(f"  - '{removed}' (File: {file_path})")
+            else:
+                print(f"  - '{removed}' (File: Unknown)")
     print("\n--- Scan and translation process complete ---")
 
 if __name__ == "__main__":
