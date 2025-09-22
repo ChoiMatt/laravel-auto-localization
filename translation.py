@@ -919,7 +919,7 @@ def main():
     parser.add_argument('files', nargs='+', help='One or more Blade files or directories to process')
     parser.add_argument('--interactive', '-i', action='store_true', help='Run in interactive mode, prompting for each change')
     parser.add_argument('--no-translate', action='store_true', help='Wrap text but do not call translation APIs.')
-    parser.add_argument('--validate', '-v',  action='store_true', help='Use AI to validate if text content should be translated (removes technical/non-semantic text)')
+    parser.add_argument('--no-validate', '-V',  action='store_true', help='Disable AI validation of text content (by default, validation is enabled)')
     args = parser.parse_args()
 
     config = load_config()
@@ -959,18 +959,21 @@ def main():
         if os.path.isfile(path_arg):
             if path_arg.endswith('.blade.php') and not is_path_excluded(path_arg, excluded_directories):
                 file_found = True
-                new_keys_from_file = process_file(path_arg, parser, args.interactive, translatable_attributes, validate_ai_model, args.validate)
+                new_keys_from_file = process_file(
+                    path_arg, parser, args.interactive, translatable_attributes, validate_ai_model, not args.no_validate
+                )
                 all_new_keys.update(new_keys_from_file)
         elif os.path.isdir(path_arg):
             for root, dirs, files in os.walk(path_arg, topdown=True):
                 dirs[:] = [d for d in dirs if d not in excluded_directories]
-                
                 for file in files:
                     if file.endswith('.blade.php'):
                         full_path = os.path.join(root, file)
                         if not is_path_excluded(full_path, excluded_directories):
                             file_found = True
-                            new_keys_from_file = process_file(full_path, parser, args.interactive, translatable_attributes, validate_ai_model, args.validate)
+                            new_keys_from_file = process_file(
+                                full_path, parser, args.interactive, translatable_attributes, validate_ai_model, not args.no_validate
+                            )
                             all_new_keys.update(new_keys_from_file)
     if not file_found:
         print("No Blade files found to process. Please check your file paths or directories.")
