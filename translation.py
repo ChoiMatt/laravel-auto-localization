@@ -111,6 +111,17 @@ def load_config():
 
     return config
 
+def find_project_root_from_file_path(file_path):
+    """
+    Given a file path, find the project root ending with 'theorigo.com' and return its path.
+    """
+    abs_path = os.path.abspath(file_path)
+    parts = abs_path.split(os.sep)
+    for i in range(len(parts), 0, -1):
+        if parts[i-1].endswith('theorigo.com'):
+            project_root = os.sep.join(parts[:i])
+            return project_root
+    raise RuntimeError(f"Could not find project root ending with 'theorigo.com' in path: {abs_path}")
 
 def is_path_excluded(file_path, excluded_dirs):
     """
@@ -514,119 +525,100 @@ def process_file(file_path, parser, is_interactive, translatable_attributes, val
     # Return a list of unique text strings found in this file
     return list(set([change['text'] for change in nodes_to_wrap]))
 
-def update_lang_file(lang_code, new_keys, lang_dir='../lang', is_interactive=False):
+def update_lang_file(lang_code, new_keys, file_path, is_interactive=False):
     """
     Updates a specific language JSON file with new keys.
-    If is_interactive=True, prompts user when existing keys would be overwritten.
+    file_path: a file within the project, used to locate the lang directory.
     """
-    lang_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), lang_dir)
-    lang_dir = os.path.normpath(lang_dir)
+    project_root = find_project_root_from_file_path(file_path)
+    lang_dir = os.path.join(project_root, 'lang')
     if not os.path.exists(lang_dir):
         os.makedirs(lang_dir, exist_ok=True)
         abs_dir = os.path.abspath(lang_dir)
         print(f"✅ Created language directory at: {abs_dir}")
 
-    file_path = os.path.join(lang_dir, f"{lang_code}.json")
+    lang_file_path = os.path.join(lang_dir, f"{lang_code}.json")
 
     # Ensure the language file exists
-    if not os.path.exists(file_path):
-        with open(file_path, 'w', encoding='utf-8') as f:
+    if not os.path.exists(lang_file_path):
+        with open(lang_file_path, 'w', encoding='utf-8') as f:
             json.dump({}, f, indent=4, ensure_ascii=False)
-        print(f"✅ Created language file: {os.path.abspath(file_path)}")
+        print(f"✅ Created language file: {os.path.abspath(lang_file_path)}")
 
     existing_translations = {}
-    if os.path.exists(file_path):
-        with open(file_path, 'r', encoding='utf-8') as f:
+    if os.path.exists(lang_file_path):
+        with open(lang_file_path, 'r', encoding='utf-8') as f:
             try:
                 existing_translations = json.load(f)
             except json.JSONDecodeError:
-                print(f"⚠️ Warning: Could not parse existing JSON file: {file_path}")
+                print(f"⚠️ Warning: Could not parse existing JSON file: {lang_file_path}")
 
     # Check for existing keys and handle them based on interactive mode
     keys_to_update = {}
     conflicting_keys = {}
-    
     for key, new_value in new_keys.items():
         if key in existing_translations and existing_translations[key].strip():
-            # Key exists and has a non-empty value
             existing_value = existing_translations[key]
             if existing_value != new_value:
-                # Values are different
                 conflicting_keys[key] = {
                     'existing': existing_value,
                     'new': new_value
                 }
             else:
-                # Values are the same, no conflict
                 keys_to_update[key] = new_value
         else:
-            # Key doesn't exist or is empty, safe to add
             keys_to_update[key] = new_value
-    
-    # Handle conflicting keys
+
     if conflicting_keys and is_interactive:
         print(f"\n--- ⚠️Found existing translation conflicts in {lang_code}.json ---")
         for key, values in conflicting_keys.items():
             print(f"\nKey: '{key}'")
             print(f"Existing translation: '{values['existing']}'")
             print(f"New translation: '{values['new']}'")
-
             while True:
                 choice = input("Keep which version? (e)existing / (n)ew: ").strip().lower()
                 if choice in ['e', 'existing']:
-                    # Keep existing, don't update
                     print(f"✅ Keeping existing translation for '{key}'")
                     break
                 elif choice in ['n', 'new']:
-                    # Use new translation
                     keys_to_update[key] = values['new']
                     print(f"✅ Using new translation for '{key}'")
                     break
                 else:
                     print("Please enter 'e' or 'n'")
     elif conflicting_keys and not is_interactive:
-        # Non-interactive mode: keep existing translations, report conflicts
         print(f"\n⚠️ Found {len(conflicting_keys)} conflicting keys in {lang_code}.json:")
         for key, values in conflicting_keys.items():
             print(f"  '{key}': keeping existing '{values['existing']}' (new was '{values['new']}')")
-        # Don't update conflicting keys in non-interactive mode
-    
-    # Apply the updates
     if keys_to_update:
         existing_translations.update(keys_to_update)
-        
-        with open(file_path, 'w', encoding='utf-8') as f:
+        with open(lang_file_path, 'w', encoding='utf-8') as f:
             json.dump(existing_translations, f, indent=4, ensure_ascii=False)
-        
-        print(f"Updated language file: {file_path} ({len(keys_to_update)} keys)")
+        print(f"Updated language file: {lang_file_path} ({len(keys_to_update)} keys)")
     else:
-        print(f"No updates needed for: {file_path}")
+        print(f"No updates needed for: {lang_file_path}")
 
-def filter_existing_keys(keys_to_check, target_language, lang_dir='../lang'):
+def filter_existing_keys(keys_to_check, target_language, file_path):
     """
     Filters out keys that already exist in the target language file.
+    file_path: a file within the project, used to locate the lang directory.
     Returns a new set with only the keys that need translation.
     """
-    lang_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), lang_dir)
-    lang_dir = os.path.normpath(lang_dir)
+    project_root = find_project_root_from_file_path(file_path)
+    lang_dir = os.path.join(project_root, 'lang')
     lang_file_path = os.path.join(lang_dir, f"{target_language}.json")
     existing_translations = {}
-    
     if os.path.exists(lang_file_path):
         try:
             with open(lang_file_path, 'r', encoding='utf-8') as f:
                 existing_translations = json.load(f)
         except json.JSONDecodeError:
             print(f"⚠️ Warning: Could not parse existing JSON file: {lang_file_path}")
-    
-    # Create a copy and remove existing keys
     filtered_keys = set(keys_to_check)
     original_count = len(filtered_keys)
     filtered_keys = {key for key in filtered_keys if key not in existing_translations or not existing_translations.get(key, '').strip()}
-    
     if original_count > len(filtered_keys):
         print(f"\nFound {original_count - len(filtered_keys)} existing translations for {target_language}, skipping those keys")
-    
     return filtered_keys
 
 def gen_format_example(target_languages):
@@ -671,7 +663,7 @@ def parse_request_output(response_text, texts_list, target_languages):
                         break
     return {"translations": translations}
 
-def translate_and_save(keys_to_translate, source_language, target_languages, ai_model, cmscore_ai_token, hardcoded_translations=None, use_cmscore_ai_first=False, is_interactive=False):
+def translate_and_save(keys_to_translate, source_language, target_languages, ai_model, cmscore_ai_token, hardcoded_translations=None, use_cmscore_ai_first=False, is_interactive=False, file_path=None):
     """
     Translates keys using OpenAI and saves them to language files.
     """
@@ -909,7 +901,7 @@ def translate_and_save(keys_to_translate, source_language, target_languages, ai_
                 translated_keys_by_language[lang][original_key] = ""
     # Update language files for all target languages
     for target_language in target_languages:
-        update_lang_file(target_language, translated_keys_by_language[target_language], is_interactive=is_interactive)
+        update_lang_file(target_language, translated_keys_by_language[target_language], file_path, is_interactive=is_interactive)
 
 def main():
     """
@@ -955,10 +947,14 @@ def main():
 
     all_new_keys = set()
     file_found = False
+    # Track the first valid file path for lang dir resolution
+    valid_file_path = None
     for path_arg in args.files:
         if os.path.isfile(path_arg):
             if path_arg.endswith('.blade.php') and not is_path_excluded(path_arg, excluded_directories):
                 file_found = True
+                if not valid_file_path:
+                    valid_file_path = path_arg
                 new_keys_from_file = process_file(
                     path_arg, parser, args.interactive, translatable_attributes, validate_ai_model, not args.no_validate
                 )
@@ -971,6 +967,8 @@ def main():
                         full_path = os.path.join(root, file)
                         if not is_path_excluded(full_path, excluded_directories):
                             file_found = True
+                            if not valid_file_path:
+                                valid_file_path = full_path
                             new_keys_from_file = process_file(
                                 full_path, parser, args.interactive, translatable_attributes, validate_ai_model, not args.no_validate
                             )
@@ -981,30 +979,23 @@ def main():
 
     print("\n--- Scan complete. ---")
     if all_new_keys:
-        # Collect all filtered keys across all target languages
         all_filtered_keys = set()
         languages_needing_translation = []
-        
         for target_language in target_languages:
-            # Filter out keys that already exist in the target language
-            filtered_new_keys = filter_existing_keys(all_new_keys, target_language)
-            
+            filtered_new_keys = filter_existing_keys(all_new_keys, target_language, valid_file_path)
             if filtered_new_keys:
                 all_filtered_keys.update(filtered_new_keys)
                 languages_needing_translation.append(target_language)
             else:
                 print(f"\nAll keys for {target_language} already exist. No updates on {target_language}.json")
-        
-        # If any languages need translation, make a single API call for all
         if all_filtered_keys and languages_needing_translation:
             if not args.no_translate:
-                translate_and_save(all_filtered_keys, source_language, languages_needing_translation, translate_ai_model, cmscore_ai_token, hardcoded_translations, use_cmscore_ai_first, args.interactive)
+                translate_and_save(all_filtered_keys, source_language, languages_needing_translation, translate_ai_model, cmscore_ai_token, hardcoded_translations, use_cmscore_ai_first, args.interactive, valid_file_path)
             else:
-                # For --no-translate, create empty translations for each language
                 for target_language in languages_needing_translation:
-                    filtered_keys_for_lang = filter_existing_keys(all_new_keys, target_language)
+                    filtered_keys_for_lang = filter_existing_keys(all_new_keys, target_language, valid_file_path)
                     empty_translations = {key: "" for key in filtered_keys_for_lang}
-                    update_lang_file(target_language, empty_translations, is_interactive=args.interactive)
+                    update_lang_file(target_language, empty_translations, valid_file_path, is_interactive=args.interactive)
                     print(f"Added {len(filtered_keys_for_lang)} new empty keys to {target_language}.json for future translation")
     else:
         print("\nNo new translatable text found in the provided files. No updates made to language files.")
