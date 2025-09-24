@@ -2,22 +2,23 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import List, Dict, Optional
 from dotenv import load_dotenv
+import json
 import os
 
 # Language code to language name mapping
-LANG_CODE_TO_NAME = {
-    "en": "English",
-    "zh_HK": "Traditional Chinese",
-    "zh_TC": "Traditional Chinese",
-    "zh_TW": "Traditional Chinese",
-    "zh_CN": "Simplified Chinese",
-    "zh_SC": "Simplified Chinese",
-}
+
+LANG_CODE_TO_NAME = {}
 
 # Load environment variables from .env file
 load_dotenv()
 
 app = FastAPI()
+
+CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config.json")
+if os.path.exists(CONFIG_PATH):
+    with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+        _CONFIG = json.load(f)
+    LANG_CODE_TO_NAME = _CONFIG.get("LANG_CODE_TO_NAME", {})
 
 class TranslateRequest(BaseModel):
     texts: List[str]
@@ -35,7 +36,6 @@ class ConfigResponse(BaseModel):
 
 @app.get("/config", response_model=ConfigResponse)
 def get_config():
-    import json
     # Place your config.json in the same directory as this server.py file
     config_path = os.path.join(os.path.dirname(__file__), "config.json")
     if os.path.exists(config_path):

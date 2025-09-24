@@ -6,3 +6,5 @@ services:
         ports:
             - "8000:8000"
         restart: unless-stopped
+        volumes:
+            - ./config.json:/app/src/config.json:ro

@@ -1,6 +1,19 @@
 {
+    "LANG_CODE_TO_NAME": {
+        "en": "English",
+        "zh_HK": "Traditional Chinese",
+        "zh_TC": "Traditional Chinese",
+        "zh_TW": "Traditional Chinese",
+        "zh_CN": "Simplified Chinese",
+        "zh_SC": "Simplified Chinese"
+    },
     "source_language": "en",
-    "translatable_attributes": ["placeholder", "image-alt", "aria-label", "alt"],
+    "translatable_attributes": [
+        "placeholder",
+        "image-alt",
+        "aria-label",
+        "alt"
+    ],
     "excluded_directories": [
         "dummy",
         "node_modules",
