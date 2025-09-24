@@ -530,6 +530,12 @@ def update_lang_file(lang_code, new_keys, project_root, is_interactive=False):
     """
     Updates a specific language JSON file with new keys.
     """
+    if not project_root:
+        print("⚠️ Warning: Project root not found. Cannot update respective language files. Please paste the below output to the corresponding JSON manually.")
+        print(f"\n--- New keys for {lang_code}.json ---")
+        print(json.dumps(new_keys, indent=4, ensure_ascii=False))
+        print("--- End of new keys ---\n")
+        return
     lang_dir = os.path.join(project_root, 'lang')
     if not os.path.exists(lang_dir):
         os.makedirs(lang_dir, exist_ok=True)
@@ -602,6 +608,10 @@ def filter_existing_keys(keys_to_check, target_language, project_root):
     Filters out keys that already exist in the target language file.
     Returns a new set with only the keys that need translation.
     """
+    filtered_keys = set(keys_to_check)
+    if not project_root:
+        print("⚠️ Warning: Project root not found. Cannot filter existing keys.")
+        return filtered_keys
     lang_dir = os.path.join(project_root, 'lang')
     lang_file_path = os.path.join(lang_dir, f"{target_language}.json")
     existing_translations = {}
@@ -611,7 +621,6 @@ def filter_existing_keys(keys_to_check, target_language, project_root):
                 existing_translations = json.load(f)
         except json.JSONDecodeError:
             print(f"⚠️ Warning: Could not parse existing JSON file: {lang_file_path}")
-    filtered_keys = set(keys_to_check)
     original_count = len(filtered_keys)
     filtered_keys = {key for key in filtered_keys if key not in existing_translations or not existing_translations.get(key, '').strip()}
     if original_count > len(filtered_keys):
