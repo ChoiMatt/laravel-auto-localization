@@ -118,11 +118,11 @@ def find_project_root_from_file_path(file_path):
     """
     abs_path = os.path.abspath(file_path)
     parts = abs_path.split(os.sep)
+    project_root = None
     for i in range(len(parts), 0, -1):
         if parts[i-1].endswith('theorigo.com'):
             project_root = os.sep.join(parts[:i])
             return project_root
-    raise RuntimeError(f"Could not find project root ending with 'theorigo.com' in path: {abs_path}")
 
 def is_path_excluded(file_path, excluded_dirs):
     """
