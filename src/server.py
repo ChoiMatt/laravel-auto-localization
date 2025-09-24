@@ -4,6 +4,16 @@ from typing import List, Dict, Optional
 from dotenv import load_dotenv
 import os
 
+# Language code to language name mapping
+LANG_CODE_TO_NAME = {
+    "en": "English",
+    "zh_HK": "Traditional Chinese",
+    "zh_TC": "Traditional Chinese",
+    "zh_TW": "Traditional Chinese",
+    "zh_CN": "Simplified Chinese",
+    "zh_SC": "Simplified Chinese",
+}
+
 # Load environment variables from .env file
 load_dotenv()
 
@@ -55,14 +65,16 @@ def translate(req: TranslateRequest):
     ai_model = req.ai_model or "gpt-4.1-nano"
     hardcoded_translations = req.hardcoded_translations or {}
     retranslate = getattr(req, 'retranslate', False)
+    full_source_language = LANG_CODE_TO_NAME.get(source_language, source_language)
+    mapped_target_languages = [(lang, LANG_CODE_TO_NAME.get(lang, lang)) for lang in target_languages]
 
     # Build hardcoded translations reference for the prompt for all target languages
     hardcoded_examples = ""
-    for target_language in target_languages:
-        if target_language in hardcoded_translations:
-            language_translations = hardcoded_translations.get(target_language, {})
+    for lang_code, mapped_name in mapped_target_languages:
+        if mapped_name in hardcoded_translations:
+            language_translations = hardcoded_translations.get(mapped_name, {})
             if language_translations:
-                hardcoded_examples += f"\n\nFor {target_language}, prefer these translations when applicable:\n"
+                hardcoded_examples += f"\n\nFor {lang_code}, prefer these translations when applicable:\n"
                 for key, value in language_translations.items():
                     hardcoded_examples += f"- '{key}' → '{value}'\n"
     if hardcoded_examples:
@@ -70,23 +82,30 @@ def translate(req: TranslateRequest):
 
     # Create format example for the prompt that works with any number of languages
     format_example_lines = []
-    for lang in target_languages:
-        format_example_lines.append(f"   {lang}: [translation]")
+    for lang_code, mapped_name in mapped_target_languages:
+        format_example_lines.append(f"   {lang_code}: [translation]")
     format_example = "\n".join(format_example_lines)
 
     # Always return both first and retranslated results if retranslate is True
     keys_text = "\n".join([f"{i+1}. {key}" for i, key in enumerate(texts_list)])
 
-    specific_translate = source_language.lower() == "en" and "zh_HK" in target_languages and "zh_CN" in target_languages and len(target_languages) == 2
+    language_display = ', '.join([
+        f"{mapped_name} ({lang_code})" for lang_code, mapped_name in mapped_target_languages
+    ])
+    target_names = {mapped_name for _, mapped_name in mapped_target_languages}
+    specific_translate = (
+        full_source_language == "English"
+        and target_names == {"Traditional Chinese", "Simplified Chinese"}
+    )
     try:
         # First translation
         if specific_translate:
             system_prompt_first = "\n".join([
-                "You are a professional translator. Translate the following numbered list of texts that appear on a website from English to Traditional Chinese (zh_HK) and Simplified Chinese (zh_CN).",
+                f"You are a professional translator. Translate the following numbered list of texts that appear on a website from {full_source_language} ({source_language}) to each of these languages: {language_display}.",
                 "Instructions:",
                 "Use formal written language only, not spoken or colloquial forms.",
-                "For Traditional Chinese (zh_HK), use expressions and vocabulary as spoken and written by Cantonese speakers in Hong Kong.",
-                "For Simplified Chinese (zh_CN), use expressions and vocabulary as spoken and written by Mainland China speakers.",
+                "For Traditional Chinese, use expressions and vocabulary as spoken and written by Cantonese speakers in Hong Kong.",
+                "For Simplified Chinese, use expressions and vocabulary as spoken and written by Mainland China speakers.",
                 "If it is appropriate, try to use similar sentence structure and vocabulary in both Traditional Chinese and Simplified Chinese translations, to maintain consistency and clarity across both versions.",
                 "Adapt meaning for clarity and naturalness in a web context; do not translate word-for-word.",
                 f"For each numbered text, provide translations for all languages in this format:\n\n1. [Original text]\n{format_example}\n\n2. [Next text]\n{format_example}",
@@ -94,7 +113,7 @@ def translate(req: TranslateRequest):
             ])
         else:
             system_prompt_first = "\n".join([
-                f"You are a professional translator. Translate the following numbered list of texts from {source_language} to each of these languages: {', '.join(target_languages)}.",
+                f"You are a professional translator. Translate the following numbered list of texts from {full_source_language} ({source_language}) to each of these languages: {language_display}.",
                 "Instructions:",
                 "Use formal written language only, not spoken or colloquial forms.",
                 "Use regionally appropriate vocabulary, expressions, and tone.",
@@ -150,13 +169,13 @@ def translate(req: TranslateRequest):
                     re_keys_text += f"   {lang} (first): {first_tr}\n"
             if specific_translate:
                 system_prompt_re = "\n".join([
-                    "You are a professional translator. The previous translations for these website texts were not satisfactory. Translate the following numbered list of texts that appear on a website from English to Traditional Chinese (zh_HK) and Simplified Chinese (zh_CN).",
+                    f"You are a professional translator. The previous translations for these website texts were not satisfactory. Translate the following numbered list of texts that appear on a website from {full_source_language} ({source_language}) to each of these languages: {language_display}.",
                     "For each numbered text, you are given the original text and the first translation for each target language. Provide a different, better translation for each language.",
                     "Instructions:",
                     "DO NOT reuse the previous translations; provide NEW, improved translations.",
                     "Use formal written language only, not spoken or colloquial forms.",
-                    "For Traditional Chinese (zh_HK), use expressions and vocabulary as spoken and written by Cantonese speakers in Hong Kong.",
-                    "For Simplified Chinese (zh_CN), use expressions and vocabulary as spoken and written by Mainland China speakers.",
+                    "For Traditional Chinese, use expressions and vocabulary as spoken and written by Cantonese speakers in Hong Kong.",
+                    "For Simplified Chinese, use expressions and vocabulary as spoken and written by Mainland China speakers.",
                     "If it is appropriate, try to use similar sentence structure and vocabulary in both Traditional Chinese and Simplified Chinese translations, to maintain consistency and clarity across both versions.",
                     "Adapt meaning for clarity and naturalness in a web context; do not translate word-for-word.",
                     f"For each numbered text, provide translations for all languages in this format:\n\n1. [Original text]\n{format_example}\n\n2. [Next text]\n{format_example}",
@@ -164,7 +183,7 @@ def translate(req: TranslateRequest):
                 ])
             else:
                 system_prompt_re = "\n".join([
-                    f"You are a professional translator. The previous translations for these website texts were not satisfactory. Translate the following numbered list of texts from {source_language} to each of these languages: {', '.join(target_languages)}.",
+                    f"You are a professional translator. The previous translations for these website texts were not satisfactory. Translate the following numbered list of texts from {full_source_language} ({source_language}) to each of these languages: {language_display}.",
                     "For each numbered text, you are given the original text and the first translation for each target language. Provide a different, better translation for each language.",
                     "Instructions:",
                     "DO NOT reuse the previous translations; provide NEW, improved translations.",
