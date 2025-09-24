@@ -1018,9 +1018,9 @@ def main():
     """
     parser = argparse.ArgumentParser(description='Process Blade files for localization')
     parser.add_argument('files', nargs='+', help='One or more Blade files or directories to process')
-    parser.add_argument('--interactive', '-i', action='store_true', help='Run in interactive mode, prompting for each change')
-    parser.add_argument('--no-translate', action='store_true', help='Wrap text but do not call translation APIs.')
-    parser.add_argument('--no-validate', '-V',  action='store_true', help='Disable AI validation of text content (by default, validation is enabled)')
+    parser.add_argument('-i', '--interactive', action='store_true', help='Run in interactive mode, prompting for each change')
+    parser.add_argument('-t', '--no-translate', action='store_true', help='Wrap text but do not call translation APIs.')
+    parser.add_argument('-v', '--no-validate', action='store_true', help='Disable AI validation of text content (by default, validation is enabled)')
     args = parser.parse_args()
 
     config = load_config()
