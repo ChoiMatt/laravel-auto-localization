@@ -230,8 +230,8 @@ def find_translatable_nodes(node, changes_list, translatable_attributes, origina
             start_offset = original_text_bytes.find(stripped_text.encode('utf8'))
             if start_offset != -1:
                 start_byte = node.start_byte + start_offset
-                end_byte = start_byte + len(stripped_text)
-                
+                # Use byte length for end_byte to handle multi-byte chars
+                end_byte = start_byte + len(stripped_text.encode('utf8'))
                 # Check if text is already wrapped with __('...')
                 pure_text = is_already_wrapped(original_content, start_byte, end_byte)
                 if pure_text is not None:
@@ -277,7 +277,8 @@ def find_translatable_nodes(node, changes_list, translatable_attributes, origina
                         if stripped_attr_text and not stripped_attr_text.isnumeric() and len(stripped_attr_text) > 1:
                             start_offset = attr_text.find(stripped_attr_text)
                             start_byte = child.start_byte + start_offset
-                            end_byte = start_byte + len(stripped_attr_text)
+                            # Use byte length for end_byte to handle multi-byte chars
+                            end_byte = start_byte + len(stripped_attr_text.encode('utf8'))
 
                             # Check if attribute text is already wrapped with __('...')
                             pure_text = is_already_wrapped(original_content, start_byte, end_byte)
@@ -297,14 +298,14 @@ def find_translatable_nodes(node, changes_list, translatable_attributes, origina
                             else:
                                 # Handle literal quotes in dynamic attributes and regular attributes
                                 text_to_store = stripped_attr_text
-                                
+
                                 # For dynamic attributes with literal strings, remove outer quotes
                                 if is_dynamic_attribute and stripped_attr_text.startswith("'") and stripped_attr_text.endswith("'"):
                                     text_to_store = stripped_attr_text[1:-1]  # Remove outer quotes
-                                
+
                                 # Unescape the text for clean storage
                                 unescaped_text = unescape_php_string(text_to_store)
-                                
+
                                 change = {
                                     'text': unescaped_text,
                                     'start_byte': start_byte,
