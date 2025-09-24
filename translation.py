@@ -1,5 +1,6 @@
 import os
 import json
+import re
 import warnings
 from ctypes import cdll, c_void_p
 from tree_sitter import Language, Parser
@@ -525,12 +526,10 @@ def process_file(file_path, parser, is_interactive, translatable_attributes, val
     # Return a list of unique text strings found in this file
     return list(set([change['text'] for change in nodes_to_wrap]))
 
-def update_lang_file(lang_code, new_keys, file_path, is_interactive=False):
+def update_lang_file(lang_code, new_keys, project_root, is_interactive=False):
     """
     Updates a specific language JSON file with new keys.
-    file_path: a file within the project, used to locate the lang directory.
     """
-    project_root = find_project_root_from_file_path(file_path)
     lang_dir = os.path.join(project_root, 'lang')
     if not os.path.exists(lang_dir):
         os.makedirs(lang_dir, exist_ok=True)
@@ -598,13 +597,11 @@ def update_lang_file(lang_code, new_keys, file_path, is_interactive=False):
     else:
         print(f"No updates needed for: {lang_file_path}")
 
-def filter_existing_keys(keys_to_check, target_language, file_path):
+def filter_existing_keys(keys_to_check, target_language, project_root):
     """
     Filters out keys that already exist in the target language file.
-    file_path: a file within the project, used to locate the lang directory.
     Returns a new set with only the keys that need translation.
     """
-    project_root = find_project_root_from_file_path(file_path)
     lang_dir = os.path.join(project_root, 'lang')
     lang_file_path = os.path.join(lang_dir, f"{target_language}.json")
     existing_translations = {}
@@ -639,6 +636,108 @@ def gen_hardcoded_example(hardcoded_translations, target_languages):
     if hardcoded_examples:
         hardcoded_examples += "\nUse these preferred translations when the terms appear standalone or can be naturally incorporated."
     return hardcoded_examples
+    
+def get_locales_from_theorigo_php(project_root):
+    try:
+        theorigo_php_path = os.path.join(project_root, 'config', 'theorigo.php')
+        
+        if not os.path.exists(theorigo_php_path):
+            print(f"Error: Config file not found at '{theorigo_php_path}'")
+            return None
+
+        with open(theorigo_php_path, 'r', encoding='utf-8') as f:
+            php_content = f.read()
+
+        lang_seg_start_match = re.search(r"(['\"])language_segment\1\s*=>\s*\[", php_content)
+        if not lang_seg_start_match:
+            print("Warning: 'language_segment' array not found in the file.")
+            return None
+        
+        start_idx = lang_seg_start_match.end()
+        bracket_count = 1
+        i = start_idx
+        while i < len(php_content) and bracket_count > 0:
+            if php_content[i] == '[':
+                bracket_count += 1
+            elif php_content[i] == ']':
+                bracket_count -= 1
+            i += 1
+        
+        lang_seg_block = php_content[start_idx : i-1]
+        result = {}
+        entry_pattern = re.compile(r"(['\"])([^'\"]+)\1\s*=>\s*\[")
+        
+        for match in entry_pattern.finditer(lang_seg_block):
+            key = match.group(2)
+            arr_content_start = match.end()
+            
+            bracket_count = 1
+            arr_end_index = -1
+            for j, char in enumerate(lang_seg_block[arr_content_start:]):
+                if char == '[':
+                    bracket_count += 1
+                elif char == ']':
+                    bracket_count -= 1
+                
+                if bracket_count == 0:
+                    arr_end_index = arr_content_start + j
+                    break
+            
+            if arr_end_index != -1:
+                arr_content = lang_seg_block[arr_content_start:arr_end_index]
+                locale_match = re.search(r"(['\"])locale\1\s*=>\s*(['\"])(.*?)\2", arr_content)
+                if locale_match:
+                    result[key] = locale_match.group(3)
+        
+        if result:
+            return result
+
+    except Exception as e:
+        print(f"⚠️ An unexpected error occurred: {e}")
+    return None
+
+def get_source_language_from_env(project_root):
+    try:
+        default_source_language = "en"
+        app_locale = default_source_language
+        env_path = os.path.join(project_root, '.env')
+        if not os.path.exists(env_path):
+            print(f".env file not found at {env_path}")
+            return app_locale
+        with open(env_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith('APP_LOCALE='):
+                    app_locale = line.split('=', 1)[1].strip().strip('"').strip("'")
+                    return app_locale
+    except Exception as e:
+        print(f"Error reading .env or theorigo.php: {e}")
+    return app_locale
+
+def get_source_and_target_languages(project_root):
+    try:
+        app_locale = get_source_language_from_env(project_root)
+        if not app_locale:
+            print("APP_LOCALE not found in .env")
+            return None, None
+        locales = get_locales_from_theorigo_php(project_root)
+        if not locales:
+            print("Could not extract locales from theorigo.php")
+            return None, None
+        source_language = None
+        for k, v in locales.items():
+            if v == app_locale:
+                source_language = v
+                break
+        if not source_language:
+            print(f"APP_LOCALE '{app_locale}' does not match any theorigo.php locale value.")
+            return None, None
+        # target_languages should be a list of locale values except the source locale
+        target_languages = [v for k, v in locales.items() if v != source_language]
+        return source_language, target_languages
+    except Exception as e:
+        print(f"Error determining source/target languages: {e}")
+        return None, None
 
 def parse_request_output(response_text, texts_list, target_languages):
     translations = {lang: {} for lang in target_languages}
@@ -663,7 +762,7 @@ def parse_request_output(response_text, texts_list, target_languages):
                         break
     return {"translations": translations}
 
-def translate_and_save(keys_to_translate, source_language, target_languages, ai_model, cmscore_ai_token, hardcoded_translations=None, use_cmscore_ai_first=False, is_interactive=False, file_path=None):
+def translate_and_save(keys_to_translate, source_language, target_languages, ai_model, cmscore_ai_token, hardcoded_translations=None, use_cmscore_ai_first=False, is_interactive=False, project_root=None):
     """
     Translates keys using OpenAI and saves them to language files.
     """
@@ -901,7 +1000,7 @@ def translate_and_save(keys_to_translate, source_language, target_languages, ai_
                 translated_keys_by_language[lang][original_key] = ""
     # Update language files for all target languages
     for target_language in target_languages:
-        update_lang_file(target_language, translated_keys_by_language[target_language], file_path, is_interactive=is_interactive)
+        update_lang_file(target_language, translated_keys_by_language[target_language], project_root, is_interactive=is_interactive)
 
 def main():
     """
@@ -915,15 +1014,21 @@ def main():
     args = parser.parse_args()
 
     config = load_config()
-    source_language = config['source_language']
     translatable_attributes = config['translatable_attributes']
     excluded_directories = config['excluded_directories']
-    target_languages = config['target_languages'] 
     validate_ai_model = config['validate_ai_model']
     translate_ai_model = config['translate_ai_model']
     use_cmscore_ai_first = config['use_cmscore_ai_first']
     cmscore_ai_token = config['cmscore_ai_token']
     hardcoded_translations = config['hardcoded_translations']
+
+    # Default to config values
+    source_language = config['source_language']
+    target_languages = config['target_languages']
+
+    valid_file_path = None
+    project_root = None
+    locale_checked = False
 
     if not os.path.exists(GRAMMAR_LIB_PATH):
         print(f"❌ Error: Grammar library not found at '{GRAMMAR_LIB_PATH}'")
@@ -947,14 +1052,20 @@ def main():
 
     all_new_keys = set()
     file_found = False
-    # Track the first valid file path for lang dir resolution
-    valid_file_path = None
     for path_arg in args.files:
         if os.path.isfile(path_arg):
             if path_arg.endswith('.blade.php') and not is_path_excluded(path_arg, excluded_directories):
                 file_found = True
                 if not valid_file_path:
                     valid_file_path = path_arg
+                    project_root = find_project_root_from_file_path(valid_file_path)
+                    if not locale_checked:
+                        src, tgts = get_source_and_target_languages(project_root)
+                        if src:
+                            source_language = src
+                        if tgts:
+                            target_languages = tgts
+                        locale_checked = True
                 new_keys_from_file = process_file(
                     path_arg, parser, args.interactive, translatable_attributes, validate_ai_model, not args.no_validate
                 )
@@ -969,6 +1080,14 @@ def main():
                             file_found = True
                             if not valid_file_path:
                                 valid_file_path = full_path
+                                project_root = find_project_root_from_file_path(valid_file_path)
+                                if not locale_checked:
+                                    src, tgts = get_source_and_target_languages(project_root)
+                                    if src:
+                                        source_language = src
+                                    if tgts:
+                                        target_languages = tgts
+                                    locale_checked = True
                             new_keys_from_file = process_file(
                                 full_path, parser, args.interactive, translatable_attributes, validate_ai_model, not args.no_validate
                             )
@@ -982,7 +1101,7 @@ def main():
         all_filtered_keys = set()
         languages_needing_translation = []
         for target_language in target_languages:
-            filtered_new_keys = filter_existing_keys(all_new_keys, target_language, valid_file_path)
+            filtered_new_keys = filter_existing_keys(all_new_keys, target_language, project_root)
             if filtered_new_keys:
                 all_filtered_keys.update(filtered_new_keys)
                 languages_needing_translation.append(target_language)
@@ -990,12 +1109,12 @@ def main():
                 print(f"\nAll keys for {target_language} already exist. No updates on {target_language}.json")
         if all_filtered_keys and languages_needing_translation:
             if not args.no_translate:
-                translate_and_save(all_filtered_keys, source_language, languages_needing_translation, translate_ai_model, cmscore_ai_token, hardcoded_translations, use_cmscore_ai_first, args.interactive, valid_file_path)
+                translate_and_save(all_filtered_keys, source_language, languages_needing_translation, translate_ai_model, cmscore_ai_token, hardcoded_translations, use_cmscore_ai_first, args.interactive, project_root)
             else:
                 for target_language in languages_needing_translation:
-                    filtered_keys_for_lang = filter_existing_keys(all_new_keys, target_language, valid_file_path)
+                    filtered_keys_for_lang = filter_existing_keys(all_new_keys, target_language, project_root)
                     empty_translations = {key: "" for key in filtered_keys_for_lang}
-                    update_lang_file(target_language, empty_translations, valid_file_path, is_interactive=args.interactive)
+                    update_lang_file(target_language, empty_translations, project_root, is_interactive=args.interactive)
                     print(f"Added {len(filtered_keys_for_lang)} new empty keys to {target_language}.json for future translation")
     else:
         print("\nNo new translatable text found in the provided files. No updates made to language files.")
