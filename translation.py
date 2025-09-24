@@ -781,7 +781,7 @@ def translate_and_save(keys_to_translate, source_language, target_languages, ai_
     translated_keys_by_language = {lang: {} for lang in target_languages}
     using_cmscore_ai = use_cmscore_ai_first
     primary_endpoint = API_SERVICE_ENDPOINT+"translate"
-    secondary_endpoint = MAX_SERVICE_ENDPOINT+ai_model
+    # secondary_endpoint = MAX_SERVICE_ENDPOINT+ai_model
     primary_headers = None
     primary_body = {
         "texts": keys_list,
@@ -791,44 +791,44 @@ def translate_and_save(keys_to_translate, source_language, target_languages, ai_
         "hardcoded_translations": hardcoded_translations,
         "retranslate": False
     }
-    secondary_headers = {
-        "Authorization": f"Bearer {cmscore_ai_token}",
-        "Content-Type": "application/json"
-    }
+    # secondary_headers = {
+    #     "Authorization": f"Bearer {cmscore_ai_token}",
+    #     "Content-Type": "application/json"
+    # }
 
-    format_example = gen_format_example(target_languages)
-    hardcoded_examples = gen_hardcoded_example(hardcoded_translations, target_languages)
+    # format_example = gen_format_example(target_languages)
+    # hardcoded_examples = gen_hardcoded_example(hardcoded_translations, target_languages)
 
-    keys_text = "\n".join([f"{i+1}. {key}" for i, key in enumerate(keys_list)])
+    # keys_text = "\n".join([f"{i+1}. {key}" for i, key in enumerate(keys_list)])
 
-    system_prompt_first = "\n".join([
-        f"You are a professional translator. Translate the following numbered list of texts from {source_language} to each of these languages: {', '.join(target_languages)}.",
-        "Instructions:",
-        "Use formal written language only, not spoken or colloquial forms.",
-        "Use regionally appropriate vocabulary, expressions, and tone.",
-        "Adapt meaning for clarity and naturalness in a web context; do not translate word-for-word.",
-        f"For each numbered text, provide translations for all languages in this format:\n\n1. [Original text]\n{format_example}\n\n2. [Next text]\n{format_example}",
-        f"Return ONLY the translations in this exact format without any explanations.{hardcoded_examples}"
-    ])
+    # system_prompt_first = "\n".join([
+    #     f"You are a professional translator. Translate the following numbered list of texts from {source_language} to each of these languages: {', '.join(target_languages)}.",
+    #     "Instructions:",
+    #     "Use formal written language only, not spoken or colloquial forms.",
+    #     "Use regionally appropriate vocabulary, expressions, and tone.",
+    #     "Adapt meaning for clarity and naturalness in a web context; do not translate word-for-word.",
+    #     f"For each numbered text, provide translations for all languages in this format:\n\n1. [Original text]\n{format_example}\n\n2. [Next text]\n{format_example}",
+    #     f"Return ONLY the translations in this exact format without any explanations.{hardcoded_examples}"
+    # ])
 
-    secondary_body = {
-        "state": {
-            "prompt": [
-                {
-                    "role": "system",
-                    "content": system_prompt_first
-                },
-                {
-                    "role": "user",
-                    "content": "Translate the following text based on the instructions. You can refer to <context> to reference similar text.\n<context>\n{context}\n</context>\n"+keys_text
-                }
-            ]
-        }
-    }
-    if use_cmscore_ai_first:
-        primary_endpoint, secondary_endpoint = secondary_endpoint, primary_endpoint
-        primary_headers, secondary_headers = secondary_headers, primary_headers
-        primary_body, secondary_body = secondary_body, primary_body
+    # secondary_body = {
+    #     "state": {
+    #         "prompt": [
+    #             {
+    #                 "role": "system",
+    #                 "content": system_prompt_first
+    #             },
+    #             {
+    #                 "role": "user",
+    #                 "content": "Translate the following text based on the instructions. You can refer to <context> to reference similar text.\n<context>\n{context}\n</context>\n"+keys_text
+    #             }
+    #         ]
+    #     }
+    # }
+    # if use_cmscore_ai_first:
+    #     primary_endpoint, secondary_endpoint = secondary_endpoint, primary_endpoint
+    #     primary_headers, secondary_headers = secondary_headers, primary_headers
+    #     primary_body, secondary_body = secondary_body, primary_body
 
     try:
         response = requests.post(
@@ -841,25 +841,26 @@ def translate_and_save(keys_to_translate, source_language, target_languages, ai_
         print(f"❌ Error: Primary translation endpoint exception: {e}")
         response = None
 
-    if not response or response.status_code != 200:
-        print(f"⚠️ Warning: Translation request to {primary_endpoint} failed, retrying...")
-        using_cmscore_ai = not using_cmscore_ai
-        try:
-            response = requests.post(
-                secondary_endpoint,
-                json=secondary_body,
-                headers=secondary_headers,
-                timeout=60
-            )
-        except Exception as e:
-            print(f"❌ Error: Secondary translation endpoint exception: {e}")
-            response = None
+    # if not response or response.status_code != 200:
+    #     print(f"⚠️ Warning: Translation request to {primary_endpoint} failed, retrying...")
+    #     using_cmscore_ai = not using_cmscore_ai
+    #     try:
+    #         response = requests.post(
+    #             secondary_endpoint,
+    #             json=secondary_body,
+    #             headers=secondary_headers,
+    #             timeout=60
+    #         )
+    #     except Exception as e:
+    #         print(f"❌ Error: Secondary translation endpoint exception: {e}")
+    #         response = None
 
     if response and response.status_code == 200:
-        if using_cmscore_ai:
-            translations = parse_request_output(response.json(), keys_list, target_languages).get("translations", {})
-        else:
-            translations = response.json().get("translations", {})
+        # if using_cmscore_ai:
+        #     translations = parse_request_output(response.json(), keys_list, target_languages).get("translations", {})
+        # else:
+        #     translations = response.json().get("translations", {})
+        translations = response.json().get("translations", {})
         if is_interactive:
             keys_to_retranslate = []
             # Store first translation for later reference
@@ -899,65 +900,81 @@ def translate_and_save(keys_to_translate, source_language, target_languages, ai_
                         key: first_translations.get(lang, {}).get(key, "")
                         for key in keys_to_retranslate
                     }
-                if use_cmscore_ai_first:
-                    secondary_retranslate_body = {
-                        "texts": keys_to_retranslate,
-                        "source_language": source_language,
-                        "target_languages": target_languages,
-                        "ai_model": ai_model,
-                        "hardcoded_translations": hardcoded_translations,
-                        "retranslate": True,
-                        "first_translations": first_translations_payload
-                    }
-                else:
-                    system_prompt_re = "\n".join([
-                        f"You are a professional translator. The previous translations for these website texts were not satisfactory. Translate the following numbered list of texts from {source_language} to each of these languages: {', '.join(target_languages)}.",
-                        "For each numbered text, you are given the original text and the first translation for each target language. Provide a different, better translation for each language.",
-                        "Instructions:",
-                        "DO NOT reuse the previous translations; provide NEW, improved translations.",
-                        "Use formal written language only, not spoken or colloquial forms.",
-                        "Use regionally appropriate vocabulary, expressions, and tone.",
-                        "Adapt meaning for clarity and naturalness in a web context; do not translate word-for-word.",
-                        f"For each numbered text, provide translations for all languages in this format:\n\n1. [Original text]\n{format_example}\n\n2. [Next text]\n{format_example}",
-                        f"Return ONLY the improved translations in this exact format without any explanations.{hardcoded_examples}"
-                    ])
+                primary_retranslate_body = {
+                    "texts": keys_to_retranslate,
+                    "source_language": source_language,
+                    "target_languages": target_languages,
+                    "ai_model": ai_model,
+                    "hardcoded_translations": hardcoded_translations,
+                    "retranslate": True,
+                    "first_translations": first_translations_payload
+                }
+                # if use_cmscore_ai_first:
+                #     secondary_retranslate_body = {
+                #         "texts": keys_to_retranslate,
+                #         "source_language": source_language,
+                #         "target_languages": target_languages,
+                #         "ai_model": ai_model,
+                #         "hardcoded_translations": hardcoded_translations,
+                #         "retranslate": True,
+                #         "first_translations": first_translations_payload
+                #     }
+                # else:
+                #     system_prompt_re = "\n".join([
+                #         f"You are a professional translator. The previous translations for these website texts were not satisfactory. Translate the following numbered list of texts from {source_language} to each of these languages: {', '.join(target_languages)}.",
+                #         "For each numbered text, you are given the original text and the first translation for each target language. Provide a different, better translation for each language.",
+                #         "Instructions:",
+                #         "DO NOT reuse the previous translations; provide NEW, improved translations.",
+                #         "Use formal written language only, not spoken or colloquial forms.",
+                #         "Use regionally appropriate vocabulary, expressions, and tone.",
+                #         "Adapt meaning for clarity and naturalness in a web context; do not translate word-for-word.",
+                #         f"For each numbered text, provide translations for all languages in this format:\n\n1. [Original text]\n{format_example}\n\n2. [Next text]\n{format_example}",
+                #         f"Return ONLY the improved translations in this exact format without any explanations.{hardcoded_examples}"
+                #     ])
 
-                    re_keys_text = ""
-                    for i, key in enumerate(keys_to_retranslate):
-                        re_keys_text += f"{i+1}. {key}\n"
-                        for lang in target_languages:
-                            first_tr = first_translations_payload.get(lang, {}).get(key, "")
-                            re_keys_text += f"   {lang} (first): {first_tr}\n"
+                #     re_keys_text = ""
+                #     for i, key in enumerate(keys_to_retranslate):
+                #         re_keys_text += f"{i+1}. {key}\n"
+                #         for lang in target_languages:
+                #             first_tr = first_translations_payload.get(lang, {}).get(key, "")
+                #             re_keys_text += f"   {lang} (first): {first_tr}\n"
 
-                    secondary_retranslate_body = {
-                        "state": {
-                            "prompt": [
-                                {
-                                    "role": "system",
-                                    "content": system_prompt_re
-                                },
-                                {
-                                    "role": "user",
-                                    "content": "Translate the following text based on the instructions. You can refer to <context> to reference similar text.\n<context>\n{context}\n</context>\n"+re_keys_text
-                                }
-                            ]
-                        }
-                    }
+                #     secondary_retranslate_body = {
+                #         "state": {
+                #             "prompt": [
+                #                 {
+                #                     "role": "system",
+                #                     "content": system_prompt_re
+                #                 },
+                #                 {
+                #                     "role": "user",
+                #                     "content": "Translate the following text based on the instructions. You can refer to <context> to reference similar text.\n<context>\n{context}\n</context>\n"+re_keys_text
+                #                 }
+                #             ]
+                #         }
+                #     }
                 try:
+                    # response = requests.post(
+                    #     secondary_endpoint,
+                    #     json=secondary_retranslate_body,
+                    #     headers=secondary_headers,
+                    #     timeout=60
+                    # )
                     response = requests.post(
-                        secondary_endpoint,
-                        json=secondary_retranslate_body,
-                        headers=secondary_headers,
+                        primary_endpoint,
+                        json=primary_retranslate_body,
+                        headers=primary_headers,
                         timeout=60
                     )
                 except Exception as e:
-                    print(f"❌ Error: Secondary translation endpoint exception: {e}")
+                    print(f"❌ Error: Primary translation endpoint exception: {e}")
                     response = None
                 if response and response.status_code == 200:
-                    if use_cmscore_ai_first:
-                        retranslate_results = response.json().get("translations", {})
-                    else:
-                        retranslate_results = parse_request_output(response.json(), keys_to_retranslate, target_languages).get("translations", {})
+                    # if use_cmscore_ai_first:
+                    #     retranslate_results = response.json().get("translations", {})
+                    # else:
+                    #     retranslate_results = parse_request_output(response.json(), keys_to_retranslate, target_languages).get("translations", {})
+                    retranslate_results = response.json().get("translations", {})
                     for original_key in keys_to_retranslate:
                         print(f"\n--- Retranslation Review ---")
                         print(f"Original: '{original_key}'")
