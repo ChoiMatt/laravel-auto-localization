@@ -22,7 +22,7 @@ MAX_SERVICE_ENDPOINT = 'http://localhost:8080/tasks/translation/'
 # --- Default configuration if config.json is not found ---
 DEFAULT_CONFIG = {
     "source_language": "en",
-    "translatable_attributes": ["placeholder", "image-alt", "aria-label"],
+    "translatable_attributes": ["placeholder", "image-alt", "aria-label", "alt"],
     "excluded_directories": [
         "dummy",
         "node_modules",
@@ -33,7 +33,7 @@ DEFAULT_CONFIG = {
         "vendor",
         "resources/views/components"
     ],
-    "whitelist_directories": ["vendor/frontend"],
+    "whitelist_directories": ["resources/views/vendor"],
     "target_languages": ["zh_HK", "zh_CN"],
     "validate_ai_model": "gpt-4o-mini",
     "translate_ai_model": "gpt-4.1-nano",
@@ -124,7 +124,7 @@ def find_project_root_from_file_path(file_path):
             project_root = os.sep.join(parts[:i])
             return project_root
 
-def is_path_excluded(file_path, excluded_dirs):
+def is_path_excluded(file_path, whitelist_dirs, excluded_dirs):
     """
     Checks if a given file path is inside an excluded directory.
     Supports both simple directory names and specific path patterns.
@@ -135,13 +135,17 @@ def is_path_excluded(file_path, excluded_dirs):
     """
     normalized_path = os.path.normpath(file_path)
     path_parts = normalized_path.split(os.sep)
-    
+
+    for whitelist_pattern in whitelist_dirs:
+        whitelist_pattern_norm = os.path.normpath(whitelist_pattern)
+        if whitelist_pattern_norm in normalized_path:
+            return False
+
     for excluded_pattern in excluded_dirs:
         # If the pattern contains path separators, treat it as a specific path pattern
         if '/' in excluded_pattern or os.sep in excluded_pattern:
             # Normalize the pattern to use the correct path separator
             pattern_parts = os.path.normpath(excluded_pattern).split(os.sep)
-            
             # Check if this pattern sequence appears anywhere in the path
             for i in range(len(path_parts) - len(pattern_parts) + 1):
                 if path_parts[i:i + len(pattern_parts)] == pattern_parts:
@@ -150,7 +154,6 @@ def is_path_excluded(file_path, excluded_dirs):
             # Simple directory name - check if it appears anywhere in the path
             if excluded_pattern in path_parts:
                 return True
-    
     return False
 
 def is_already_escaped(text):
@@ -1043,6 +1046,7 @@ def main():
     config = load_config()
     translatable_attributes = config['translatable_attributes']
     excluded_directories = config['excluded_directories']
+    whitelist_directories = config.get('whitelist_directories', [])
     validate_ai_model = config['validate_ai_model']
     translate_ai_model = config['translate_ai_model']
     use_cmscore_ai_first = config['use_cmscore_ai_first']
@@ -1081,7 +1085,8 @@ def main():
     file_found = False
     for path_arg in args.files:
         if os.path.isfile(path_arg):
-            if path_arg.endswith('.blade.php') and not is_path_excluded(path_arg, excluded_directories):
+            abs_path_arg = os.path.abspath(path_arg)
+            if abs_path_arg.endswith('.blade.php') and not is_path_excluded(abs_path_arg, whitelist_directories, excluded_directories):
                 file_found = True
                 if not valid_file_path:
                     valid_file_path = path_arg
@@ -1099,11 +1104,16 @@ def main():
                 all_new_keys.update(new_keys_from_file)
         elif os.path.isdir(path_arg):
             for root, dirs, files in os.walk(path_arg, topdown=True):
-                dirs[:] = [d for d in dirs if d not in excluded_directories]
+                # Filter dirs using is_path_excluded so whitelist logic is respected
+                dirs[:] = [
+                    d for d in dirs
+                    if not is_path_excluded(os.path.abspath(os.path.join(root, d)), whitelist_directories, excluded_directories)
+                ]
                 for file in files:
                     if file.endswith('.blade.php'):
                         full_path = os.path.join(root, file)
-                        if not is_path_excluded(full_path, excluded_directories):
+                        abs_full_path = os.path.abspath(full_path)
+                        if not is_path_excluded(abs_full_path, whitelist_directories, excluded_directories):
                             file_found = True
                             if not valid_file_path:
                                 valid_file_path = full_path
