@@ -1,6 +1,6 @@
 {
     "source_language": "en",
-    "translatable_attributes": ["placeholder", "image-alt", "aria-label"],
+    "translatable_attributes": ["placeholder", "image-alt", "aria-label", "alt"],
     "excluded_directories": [
         "dummy",
         "node_modules",
