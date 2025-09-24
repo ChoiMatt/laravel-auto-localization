@@ -372,7 +372,7 @@ def apply_changes(original_content, changes, is_interactive=False):
             if already_wrapped and not is_attribute:
                 print(f"Found __('') wrapped literal text on line {change['line']}: '{text_to_wrap}' - will add {{{{ }}}}")
             elif already_wrapped and is_attribute and not is_dynamic:
-                print(f"Found __('') wrapped static attribute on line {change['line']}: '{text_to_wrap}' - will add {{{{ }}}}")
+                print(f"Found __('') wrapped static attribute on line {change['line']}: '{text_to_wrap}' - will add {{!! !!}}")
             elif already_wrapped and is_attribute and is_dynamic:
                 print(f"Found __('') wrapped dynamic attribute on line {change['line']}: '{text_to_wrap}' - already properly wrapped")
                 approved_changes.append(change)
@@ -399,8 +399,8 @@ def apply_changes(original_content, changes, is_interactive=False):
                         # Dynamic attribute: keep __('...') as-is
                         wrapped_text = original_wrapped
                     else:
-                        # Static attribute: add quotes and {{ }} around the existing __('...')
-                        wrapped_text = f"{{{{ {original_wrapped} }}}}"
+                        # Static attribute: add quotes and {!! !!} around the existing __('...')
+                        wrapped_text = f"{{!! {original_wrapped} !!}}"
                 else:
                     # Text node: add {{ }} around the existing __('...')
                     wrapped_text = f"{{{{ {original_wrapped} }}}}"
@@ -422,7 +422,7 @@ def apply_changes(original_content, changes, is_interactive=False):
                     if is_dynamic:
                         wrapped_text = f"__('{escaped_text}')"
                     else:
-                        wrapped_text = f"{{{{ __(\'{escaped_text}\') }}}}"
+                        wrapped_text = f"{{!! __(\'{escaped_text}\') !!}}"
                 else:
                     wrapped_text = f"{{{{ __('{escaped_text}') }}}}"
                 
