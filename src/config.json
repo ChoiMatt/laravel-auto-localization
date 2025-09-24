@@ -18,7 +18,7 @@
     "use_cmscore_ai_first": false,
     "cmscore_ai_token": "arstneio",
     "hardcoded_translations": {
-        "zh_HK": {
+        "Traditional Chinese": {
             "Skip to main content": "跳至主要內容",
             "Top": "置頂",
             "Home": "首頁",
@@ -35,7 +35,7 @@
             "LinkedIn": "LinkedIn",
             "Threads": "Threads"
         },
-        "zh_CN": {
+        "Simplified Chinese": {
             "Skip to main content": "跳至主要内容",
             "Top": "置顶",
             "Home": "首页",
