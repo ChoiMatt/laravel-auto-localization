@@ -83,7 +83,7 @@ def load_config():
     config = None
     # 1. Try FastAPI server config
     try:
-        response = requests.get(API_SERVICE_ENDPOINT+"config", timeout=3)
+        response = requests.get(API_SERVICE_ENDPOINT+"config", timeout=10)
         if response.status_code == 200:
             server_config = response.json().get("config", {})
             if server_config:
@@ -455,7 +455,7 @@ def validate_translatable_content(texts_to_validate, ai_model):
         response = requests.post(
             API_SERVICE_ENDPOINT+"validate",
             json={"texts": list(texts_to_validate), "ai_model": ai_model},
-            timeout=10
+            timeout=15
         )
         if response.status_code == 200:
             data = response.json()
