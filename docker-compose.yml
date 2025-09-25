@@ -1,10 +1,10 @@
 services:
-    fastapi-server:
-        image: fastapi-server:latest
+    translation-server:
+        image: translation-server:latest
         env_file:
             - .env
         ports:
-            - "8000:8000"
+            - "8001:8000"
         restart: unless-stopped
         volumes:
             - ./config.json:/app/src/config.json:ro
