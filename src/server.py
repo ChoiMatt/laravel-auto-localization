@@ -74,11 +74,11 @@ def translate(req: TranslateRequest):
         if mapped_name in hardcoded_translations:
             language_translations = hardcoded_translations.get(mapped_name, {})
             if language_translations:
-                hardcoded_examples += f"\n\nFor {lang_code}, prefer these translations when applicable:\n"
+                hardcoded_examples += f"\n\nFor {lang_code}, prefer these translations if you find a match in a case-insensitive way:\n"
                 for key, value in language_translations.items():
                     hardcoded_examples += f"- '{key}' → '{value}'\n"
     if hardcoded_examples:
-        hardcoded_examples += "\nUse these preferred translations when the terms appear standalone or can be naturally incorporated."
+        hardcoded_examples += "\nUse these preferred translations when the terms appear standalone or can be naturally incorporated.\nIf the original text matches a preferred translation key regardless of case (e.g., 'Next', 'NEXT', 'next'), always use the preferred translation value."
 
     # Create format example for the prompt that works with any number of languages
     format_example_lines = []
