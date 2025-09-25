@@ -16,7 +16,7 @@ REMOVED_TEXTS_SUMMARY = []  # List of tuples: (removed_text, file_path)
 # --- Configuration ---
 GRAMMAR_LIB_PATH = 'build/blade-grammar.so'
 CONFIG_FILE_PATH = os.path.normpath(os.path.join(os.path.dirname(__file__), 'config.json'))
-API_SERVICE_ENDPOINT = 'http://localhost:8000/'
+API_SERVICE_ENDPOINT = 'https://translation-d16.uat.theorigo.com/'
 MAX_SERVICE_ENDPOINT = 'http://localhost:8080/tasks/translation/'
 
 # --- Default configuration if config.json is not found ---
