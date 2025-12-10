@@ -23,7 +23,7 @@ MAX_SERVICE_ENDPOINT = 'http://localhost:8080/tasks/translation/'
 # --- Default configuration if config.json is not found ---
 DEFAULT_CONFIG = {
     "source_language": "en",
-    "translatable_attributes": ["placeholder", "image-alt", "aria-label", "alt"],
+    "translatable_attributes": ["placeholder", "image-alt", "aria-label", "alt", "title", "data-live-search-placeholder"],
     "excluded_directories": [
         "dummy",
         "node_modules",
@@ -266,7 +266,7 @@ def find_translatable_nodes(node, changes_list, translatable_attributes, origina
         attr_name = original_attr.lstrip(':')
         is_dynamic_attribute = len(original_attr) != len(attr_name)
 
-        if attr_name in translatable_attributes and len(node.children) > 2:
+        if attr_name.lower() in translatable_attributes and len(node.children) > 2:
             attr_value_node = node.children[2]
             
             if attr_value_node.type == 'quoted_attribute_value':
