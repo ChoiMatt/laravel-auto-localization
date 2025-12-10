@@ -12,7 +12,9 @@
         "placeholder",
         "image-alt",
         "aria-label",
-        "alt"
+        "alt",
+        "title",
+        "data-live-search-placeholder"
     ],
     "excluded_directories": [
         "dummy",
